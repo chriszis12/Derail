@@ -6,17 +6,100 @@
 // ============================================================================
 
 const path = require("path");
+const crypto = require("crypto");
 const http = require("http");
 const express = require("express");
+const session = require("express-session");
 const { WebSocketServer } = require("ws");
+const { setupPassport, configuredProviders } = require("./auth");
 
 const PORT = process.env.PORT || 8080;
+const IS_PROD = process.env.NODE_ENV === "production";
+
+// A signed, httpOnly session cookie is how we recognize "the same browser"
+// (guests) or "the same OAuth account" (logged-in players) across requests
+// and across the WebSocket handshake. The cookie itself never contains
+// player data — just an opaque, server-signed session id.
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
+if (!process.env.SESSION_SECRET) {
+  console.warn(
+    "[derail] SESSION_SECRET not set — using a random one for this process only. " +
+      "Logins will be forgotten on every restart. Set SESSION_SECRET in production."
+  );
+}
+
+const sessionParser = session({
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: IS_PROD,
+    maxAge: 90 * 24 * 60 * 60 * 1000, // 90 days
+  },
+});
+
+const passport = setupPassport();
 
 const app = express();
+if (IS_PROD) app.set("trust proxy", 1); // needed so `secure` cookies work behind Render/Railway/Fly proxies
+app.use(sessionParser);
+app.use(passport.initialize());
+app.use(passport.session());
 app.use(express.static(path.join(__dirname, "public")));
 
+// ----------------------------------------------------------------------------
+// Auth routes — each one only exists if its env vars are configured.
+// ----------------------------------------------------------------------------
+
+app.get("/auth/providers", (req, res) => res.json({ providers: configuredProviders() }));
+
+app.get("/auth/me", (req, res) => {
+  res.json({ user: req.user || null });
+});
+
+app.post("/auth/logout", (req, res) => {
+  req.logout(() => res.json({ ok: true }));
+});
+
+if (configuredProviders().includes("google")) {
+  app.get("/auth/google", passport.authenticate("google", { scope: ["profile"] }));
+  app.get(
+    "/auth/google/callback",
+    passport.authenticate("google", { failureRedirect: "/?auth=failed" }),
+    (req, res) => res.redirect("/?auth=ok")
+  );
+}
+if (configuredProviders().includes("github")) {
+  app.get("/auth/github", passport.authenticate("github", { scope: ["read:user"] }));
+  app.get(
+    "/auth/github/callback",
+    passport.authenticate("github", { failureRedirect: "/?auth=failed" }),
+    (req, res) => res.redirect("/?auth=ok")
+  );
+}
+if (configuredProviders().includes("discord")) {
+  app.get("/auth/discord", passport.authenticate("discord"));
+  app.get(
+    "/auth/discord/callback",
+    passport.authenticate("discord", { failureRedirect: "/?auth=failed" }),
+    (req, res) => res.redirect("/?auth=ok")
+  );
+}
+
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+// `noServer` + manual upgrade handling lets us run the same sessionParser
+// (and therefore know who's logged in) before a WebSocket connection opens.
+const wss = new WebSocketServer({ noServer: true });
+
+server.on("upgrade", (req, socket, head) => {
+  sessionParser(req, {}, () => {
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit("connection", ws, req);
+    });
+  });
+});
 
 // ----------------------------------------------------------------------------
 // Content pools
@@ -121,6 +204,8 @@ function publicPlayer(p) {
   return {
     id: p.id,
     name: p.name,
+    avatar: p.avatar || null,
+    account: !!p.account,
     connected: p.connected,
     score: p.score,
     busted: p.busted,
@@ -182,9 +267,9 @@ function send(p, payload) {
   if (p.ws && p.ws.readyState === 1) p.ws.send(JSON.stringify(payload));
 }
 
-function toast(room, playerId, message, tone = "info") {
+function toast(room, playerId, code, tone = "info", params = null) {
   const p = room.players.get(playerId);
-  if (p) send(p, { type: "toast", message, tone });
+  if (p) send(p, { type: "toast", code, params, tone });
 }
 
 // ----------------------------------------------------------------------------
@@ -278,7 +363,7 @@ function advanceToNextWriter(room, isFirst = false) {
     if (cp && cp.connected && !cp.busted) {
       if (room.skipNextTurn.has(candidateId)) {
         room.skipNextTurn.delete(candidateId);
-        toast(room, candidateId, "you lost this turn for a wrong callout", "warn");
+        toast(room, candidateId, "lost_turn_wrong_callout", "warn");
         continue; // this player is skipped, keep looking
       }
       room.currentTurnIndex = idx;
@@ -295,7 +380,7 @@ function startTurnTimer(room) {
   clearTurnTimer(room);
   room.turnTimer = setTimeout(() => {
     const currentId = room.turnOrder[room.currentTurnIndex];
-    toast(room, currentId, "time's up! turn skipped", "warn");
+    toast(room, currentId, "turn_skipped", "warn");
     advanceToNextWriter(room);
     broadcast(room);
   }, TURN_SECONDS * 1000);
@@ -325,7 +410,7 @@ function submitSentence(room, playerId, text) {
 
   const hit = containsBannedWord(clean, room.bannedWords);
   if (hit) {
-    toast(room, playerId, `banned word "${hit}" — try rephrasing`, "error");
+    toast(room, playerId, "banned_word", "error", { word: hit });
     return;
   }
 
@@ -373,14 +458,14 @@ function resolveCallout(room, guessedGoalId) {
   if (correct) {
     target.busted = true;
     caller.score += 15;
-    toast(room, callerId, `nailed it! +15 points`, "success");
-    toast(room, targetId, `you got busted by ${caller.name}`, "error");
+    toast(room, callerId, "callout_correct_points", "success");
+    toast(room, targetId, "busted_by", "error", { name: caller.name });
   } else if (guessedGoalId) {
     room.skipNextTurn.add(callerId);
-    toast(room, callerId, `wrong guess — you lose your next turn`, "warn");
-    if (target) toast(room, targetId, `${caller?.name || "someone"} accused you and was wrong`, "info");
+    toast(room, callerId, "callout_wrong_lose_turn", "warn");
+    if (target) toast(room, targetId, "accused_wrong", "info", { name: caller?.name || "?" });
   } else {
-    toast(room, callerId, `callout timed out`, "warn");
+    toast(room, callerId, "callout_timeout", "warn");
   }
 
   room.callout.resolved = {
@@ -502,10 +587,30 @@ function playAgain(room) {
 // WebSocket wiring
 // ----------------------------------------------------------------------------
 
-let nextPlayerId = 1;
+/**
+ * Derive a stable identity for this connection:
+ *  - Logged in via Google/GitHub/Discord -> identity is the OAuth account
+ *    itself (`google:12345`), so the SAME account can never occupy two
+ *    seats in the same room, even from two different browsers.
+ *  - Guest -> a random id is minted once and stashed in the session, so a
+ *    refresh or a second tab from the same browser is recognized as the
+ *    same person rather than a new player.
+ */
+function identityFromRequest(req) {
+  if (req.session?.passport?.user) {
+    const u = req.session.passport.user;
+    return { identityId: u.identityId, name: u.name, avatar: u.avatar, account: true };
+  }
+  if (!req.session.guestId) {
+    req.session.guestId = "guest:" + crypto.randomBytes(9).toString("hex");
+    req.session.save?.(() => {});
+  }
+  return { identityId: req.session.guestId, name: null, avatar: null, account: false };
+}
 
-wss.on("connection", (ws) => {
-  const playerId = "p" + nextPlayerId++;
+wss.on("connection", (ws, req) => {
+  const identity = identityFromRequest(req);
+  const playerId = identity.identityId;
   let currentRoomCode = null;
 
   ws.on("message", (raw) => {
@@ -527,7 +632,7 @@ wss.on("connection", (ws) => {
     if (msg.type === "join_room") {
       const room = getRoom(String(msg.code || "").toUpperCase());
       if (!room) {
-        ws.send(JSON.stringify({ type: "error", message: "room not found" }));
+        ws.send(JSON.stringify({ type: "error", code: "room_not_found" }));
         return;
       }
       joinRoom(room, msg.name);
@@ -542,7 +647,7 @@ wss.on("connection", (ws) => {
         const player = room.players.get(playerId);
         if (player && player.isHost) {
           const ok = startGame(room);
-          if (!ok) toast(room, playerId, "need at least 2 players", "error");
+          if (!ok) toast(room, playerId, "need_two_players", "error");
         }
         break;
       }
@@ -575,7 +680,10 @@ wss.on("connection", (ws) => {
     const room = currentRoomCode ? getRoom(currentRoomCode) : null;
     if (!room) return;
     const p = room.players.get(playerId);
-    if (p) {
+    // only mark disconnected if this socket is still the "current" one for
+    // that seat — an old socket closing after a reconnect shouldn't knock
+    // out the new one.
+    if (p && p.ws === ws) {
       p.connected = false;
       p.ws = null;
       broadcast(room);
@@ -592,12 +700,33 @@ wss.on("connection", (ws) => {
   });
 
   function joinRoom(room, name) {
+    const existing = room.players.get(playerId);
+
+    if (existing) {
+      if (existing.connected && existing.ws && existing.ws.readyState === 1 && existing.ws !== ws) {
+        // Same identity is already active in this room from another tab/device.
+        ws.send(JSON.stringify({ type: "error", code: "already_in_room" }));
+        return;
+      }
+      // Reconnect: same seat, fresh socket, keep score/goal/progress.
+      existing.ws = ws;
+      existing.connected = true;
+      if (identity.account && identity.name) existing.name = identity.name;
+      if (identity.avatar) existing.avatar = identity.avatar;
+      currentRoomCode = room.code;
+      send(existing, { type: "joined", playerId, code: room.code });
+      broadcast(room);
+      return;
+    }
+
     currentRoomCode = room.code;
     const isHost = room.players.size === 0;
     const player = {
       id: playerId,
       ws,
-      name: String(name || "Player").slice(0, 18),
+      name: identity.account && identity.name ? identity.name : String(name || "Player").slice(0, 18),
+      avatar: identity.avatar || null,
+      account: identity.account,
       connected: true,
       score: 0,
       goal: null,
