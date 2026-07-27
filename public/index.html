@@ -17,6 +17,10 @@
 <!-- ============================ SCREEN: HOME ============================ -->
 <section id="screen-home" class="screen active">
   <div class="home-wrap">
+    
+    <!-- ADDED: Auth container for OAuth providers (Google, GitHub, Discord) -->
+    <div id="auth-container" class="auth-bar"></div>
+
     <div class="case-tab">CASE FILE №<span id="rand-case">0417</span></div>
     <h1 class="logo">DERAIL</h1>
     <p class="tagline">one story. every player has a different ending in mind.</p>
@@ -85,6 +89,9 @@
     <aside class="rail">
       <h3 class="rail-title">suspects</h3>
       <ul id="player-rail" class="rail-list"></ul>
+
+      <!-- ADDED: The missing DERAIL button so players can trigger callouts -->
+      <button id="btn-derail" class="btn btn-danger derail-btn" style="margin-top: 1rem; width: 100%;">🚨 DERAIL</button>
 
       <div class="goal-card" id="goal-card">
         <div class="goal-pin"></div>
