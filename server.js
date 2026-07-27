@@ -347,25 +347,30 @@ function advanceToNextWriter(room, isFirst = false) {
     return startReveal(room);
   }
 
-  if (!isFirst) room.round += 1;
-  if (room.round >= MAX_ROUNDS) {
-    return startReveal(room);
-  }
-
-  // find next connected, non-busted player starting from currentTurnIndex
   let attempts = 0;
-  let idx = room.currentTurnIndex;
+  let idx = isFirst ? -1 : room.currentTurnIndex;
+  
   while (attempts < room.turnOrder.length) {
     idx = (idx + 1) % room.turnOrder.length;
     attempts += 1;
     const candidateId = room.turnOrder[idx];
     const cp = room.players.get(candidateId);
+    
     if (cp && cp.connected && !cp.busted) {
       if (room.skipNextTurn.has(candidateId)) {
         room.skipNextTurn.delete(candidateId);
         toast(room, candidateId, "lost_turn_wrong_callout", "warn");
-        continue; // this player is skipped, keep looking
+        continue; 
       }
+      
+      // Only increment the round when we successfully wrap back around the order
+      if (!isFirst && idx <= room.currentTurnIndex) {
+        room.round += 1;
+        if (room.round >= MAX_ROUNDS) {
+          return startReveal(room);
+        }
+      }
+      
       room.currentTurnIndex = idx;
       startTurnTimer(room);
       return;
@@ -635,6 +640,12 @@ wss.on("connection", (ws, req) => {
         ws.send(JSON.stringify({ type: "error", code: "room_not_found" }));
         return;
       }
+      
+      if (currentRoomCode && currentRoomCode !== room.code) {
+        const oldRoom = getRoom(currentRoomCode);
+        if (oldRoom) handleLeave(oldRoom, playerId);
+      }
+      
       joinRoom(room, msg.name);
       return;
     }
@@ -672,6 +683,7 @@ wss.on("connection", (ws, req) => {
       }
       case "leave_room":
         handleLeave(room, playerId);
+        currentRoomCode = null;
         break;
     }
   });
