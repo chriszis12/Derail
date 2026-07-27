@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Derail — a story with a hidden agenda</title>
+<meta name="description" content="A real-time collaborative storytelling game. Everyone writes the same story. Everyone has a different secret ending in mind." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="grain"></div>
+
+<!-- ============================ SCREEN: HOME ============================ -->
+<section id="screen-home" class="screen active">
+  <div class="home-wrap">
+    <div class="case-tab">CASE FILE №<span id="rand-case">0417</span></div>
+    <h1 class="logo">DERAIL</h1>
+    <p class="tagline">one story. every player has a different ending in mind.</p>
+
+    <div class="home-card">
+      <div class="field">
+        <label for="name-input">your name on the record</label>
+        <input id="name-input" maxlength="18" placeholder="e.g. Detective Ruiz" autocomplete="off" />
+      </div>
+
+      <div class="home-actions">
+        <button id="btn-create" class="btn btn-primary">start a new file</button>
+        <div class="divider"><span>or</span></div>
+        <div class="join-row">
+          <input id="code-input" maxlength="4" placeholder="ROOM CODE" autocomplete="off" class="code-input" />
+          <button id="btn-join" class="btn btn-secondary">join file</button>
+        </div>
+      </div>
+      <p id="home-error" class="error-line"></p>
+    </div>
+
+    <details class="rules">
+      <summary>how this works</summary>
+      <ol>
+        <li>The engine drops a boring opening scene. Everyone sees it.</li>
+        <li>You're secretly assigned a ridiculous goal to steer the story toward.</li>
+        <li>Take turns adding one sentence. 15 seconds each. Be subtle.</li>
+        <li>Think you've spotted someone's agenda? Hit <b>DERAIL</b> and accuse them.</li>
+        <li>Guess right &rarr; they're busted. Guess wrong &rarr; you lose your next turn.</li>
+        <li>After 10 rounds, everyone's goals are revealed and the table votes on who pulled it off.</li>
+      </ol>
+    </details>
+  </div>
+</section>
+
+<!-- ============================ SCREEN: LOBBY ============================ -->
+<section id="screen-lobby" class="screen">
+  <header class="topbar">
+    <div class="topbar-code">FILE <span id="lobby-code">----</span></div>
+    <button id="btn-copy-link" class="btn-ghost">copy invite link</button>
+  </header>
+
+  <div class="lobby-wrap">
+    <h2 class="section-title">the roster</h2>
+    <ul id="lobby-players" class="roster"></ul>
+
+    <div id="host-controls" class="host-controls">
+      <button id="btn-start" class="btn btn-primary btn-lg">deal the agendas &amp; begin</button>
+      <p class="hint">need at least 2 investigators in the room.</p>
+    </div>
+    <p id="waiting-note" class="hint hidden">waiting on the host to start the file&hellip;</p>
+  </div>
+</section>
+
+<!-- ============================ SCREEN: GAME ============================ -->
+<section id="screen-game" class="screen">
+  <header class="topbar">
+    <div class="topbar-code">FILE <span id="game-code">----</span></div>
+    <div class="topbar-round">ROUND <span id="round-num">0</span> / <span id="round-max">10</span></div>
+    <button id="btn-leave" class="btn-ghost">leave</button>
+  </header>
+
+  <div class="game-wrap">
+
+    <!-- Left: players / suspects rail -->
+    <aside class="rail">
+      <h3 class="rail-title">suspects</h3>
+      <ul id="player-rail" class="rail-list"></ul>
+
+      <div class="goal-card" id="goal-card">
+        <div class="goal-pin"></div>
+        <div class="goal-label">your objective</div>
+        <div class="goal-text" id="goal-text">loading&hellip;</div>
+      </div>
+    </aside>
+
+    <!-- Center: the story -->
+    <main class="storyboard">
+      <div class="scenario-strip" id="scenario-strip"></div>
+
+      <div class="banned-strip" id="banned-strip"></div>
+
+      <div class="paper">
+        <div class="paper-torn"></div>
+        <div class="story-feed" id="story-feed"></div>
+        <div class="turn-indicator" id="turn-indicator"></div>
+      </div>
+
+      <form id="sentence-form" class="sentence-form">
+        <input id="sentence-input" maxlength="220" placeholder="add exactly one sentence&hellip;" autocomplete="off" disabled />
+        <button type="submit" class="btn btn-primary" id="sentence-submit" disabled>add to file</button>
+      </form>
+      <div class="timer-track"><div class="timer-fill" id="timer-fill"></div></div>
+    </main>
+  </div>
+</section>
+
+<!-- ======================= OVERLAY: CALLOUT ======================= -->
+<div id="overlay-callout" class="overlay hidden">
+  <div class="stamp-slam" id="stamp-slam"></div>
+  <div class="callout-card">
+    <div class="callout-head">DERAIL CALLED</div>
+    <p id="callout-desc" class="callout-desc"></p>
+    <div id="callout-picker" class="goal-picker"></div>
+    <div id="callout-waiting" class="hint hidden">waiting for the accusation&hellip;</div>
+    <div id="callout-result" class="callout-result hidden"></div>
+    <div class="timer-track small"><div class="timer-fill" id="callout-timer-fill"></div></div>
+  </div>
+</div>
+
+<!-- ============================ SCREEN: VOTING ============================ -->
+<section id="screen-voting" class="screen">
+  <header class="topbar">
+    <div class="topbar-code">FILE <span id="voting-code">----</span></div>
+    <div class="topbar-round">THE VERDICT</div>
+  </header>
+  <div class="voting-wrap">
+    <h2 class="section-title">did they pull it off?</h2>
+    <p class="hint">goals are revealed. vote on whether each investigator landed their agenda naturally.</p>
+    <ul id="voting-list" class="voting-list"></ul>
+  </div>
+</section>
+
+<!-- ============================ SCREEN: REVEAL ============================ -->
+<section id="screen-reveal" class="screen">
+  <header class="topbar">
+    <div class="topbar-code">FILE <span id="reveal-code">----</span></div>
+    <div class="topbar-round">CASE CLOSED</div>
+  </header>
+  <div class="reveal-wrap">
+    <h2 class="section-title">final scoreboard</h2>
+    <ul id="reveal-scoreboard" class="scoreboard"></ul>
+
+    <h3 class="section-title small">the full story</h3>
+    <div class="paper">
+      <div class="story-feed" id="reveal-story"></div>
+    </div>
+
+    <div id="reveal-host-controls" class="host-controls hidden">
+      <button id="btn-play-again" class="btn btn-primary btn-lg">start a new file</button>
+    </div>
+  </div>
+</section>
+
+<div id="toast-stack" class="toast-stack"></div>
+
+<script src="client.js"></script>
+</body>
+</html>
