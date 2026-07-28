@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Derail — a story with a hidden agenda</title>
+<meta name="description" content="A real-time collaborative storytelling game. Everyone writes the same story. Everyone has a different secret ending in mind." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="grain"></div>
+
+<!-- global corner controls: language + sound, visible on every screen -->
+<div class="corner-controls">
+  <button id="btn-sound" class="btn-icon" title="toggle sound" aria-label="toggle sound">🔊</button>
+  <select id="lang-select" class="lang-select" aria-label="language">
+    <option value="en">EN</option>
+    <option value="el">ΕΛ</option>
+    <option value="es">ES</option>
+  </select>
+</div>
+
+<!-- ============================ SCREEN: HOME ============================ -->
+<section id="screen-home" class="screen active">
+  <div class="home-wrap">
+    <div class="case-tab">CASE FILE №<span id="rand-case">0417</span></div>
+    <h1 class="logo">DERAIL</h1>
+    <p class="tagline" data-i18n="tagline"></p>
+
+    <div class="home-card">
+      <div id="auth-section" class="auth-section hidden">
+        <div id="auth-logged-out">
+          <p class="auth-prompt" data-i18n="login_prompt"></p>
+          <div id="auth-buttons" class="auth-buttons"></div>
+          <div class="divider"><span data-i18n="play_as_guest"></span></div>
+        </div>
+        <div id="auth-logged-in" class="auth-logged-in hidden">
+          <img id="auth-avatar" class="auth-avatar hidden" alt="" />
+          <span data-i18n="logged_in_as"></span> <b id="auth-name-display"></b>
+          <button id="btn-logout" class="btn-ghost small" data-i18n="logout"></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="name-input" data-i18n="name_label"></label>
+        <input id="name-input" maxlength="18" data-i18n-placeholder="name_placeholder" autocomplete="off" />
+      </div>
+
+      <div class="home-actions">
+        <button id="btn-create" class="btn btn-primary" data-i18n="create_btn"></button>
+        <div class="divider"><span data-i18n="or"></span></div>
+        <div class="join-row">
+          <input id="code-input" maxlength="4" data-i18n-placeholder="code_placeholder" autocomplete="off" class="code-input" />
+          <button id="btn-join" class="btn btn-secondary" data-i18n="join_btn"></button>
+        </div>
+      </div>
+      <p id="home-error" class="error-line"></p>
+    </div>
+
+    <details class="rules">
+      <summary data-i18n="rules_summary"></summary>
+      <ol id="rules-list"></ol>
+    </details>
+  </div>
+</section>
+
+<!-- ============================ SCREEN: LOBBY ============================ -->
+<section id="screen-lobby" class="screen">
+  <header class="topbar">
+    <div class="topbar-code"><span data-i18n="file_label"></span> <span id="lobby-code">----</span></div>
+    <button id="btn-copy-link" class="btn-ghost" data-i18n="copy_invite"></button>
+  </header>
+
+  <div class="lobby-wrap">
+    <h2 class="section-title" data-i18n="the_roster"></h2>
+    <ul id="lobby-players" class="roster"></ul>
+
+    <div id="host-controls" class="host-controls">
+      <button id="btn-start" class="btn btn-primary btn-lg" data-i18n="start_game_btn"></button>
+      <p class="hint" data-i18n="need_two"></p>
+    </div>
+    <p id="waiting-note" class="hint hidden" data-i18n="waiting_host"></p>
+  </div>
+</section>
+
+<!-- ============================ SCREEN: GAME ============================ -->
+<section id="screen-game" class="screen">
+  <header class="topbar">
+    <div class="topbar-code"><span data-i18n="file_label"></span> <span id="game-code">----</span></div>
+    <div class="topbar-round"><span data-i18n="round_label"></span> <span id="round-num">0</span> / <span id="round-max">10</span></div>
+    <button id="btn-leave" class="btn-ghost" data-i18n="leave_btn"></button>
+  </header>
+
+  <div class="game-wrap">
+
+    <!-- Left: players / suspects rail -->
+    <aside class="rail">
+      <h3 class="rail-title" data-i18n="suspects"></h3>
+      <ul id="player-rail" class="rail-list"></ul>
+
+      <div class="goal-card" id="goal-card">
+        <div class="goal-pin"></div>
+        <div class="goal-label" data-i18n="your_objective"></div>
+        <div class="goal-text" id="goal-text"></div>
+      </div>
+    </aside>
+
+    <!-- Center: the story -->
+    <main class="storyboard">
+      <div class="scenario-strip" id="scenario-strip"></div>
+
+      <div class="banned-strip" id="banned-strip"></div>
+
+      <div class="paper">
+        <div class="paper-torn"></div>
+        <div class="story-feed" id="story-feed"></div>
+        <div class="turn-indicator" id="turn-indicator"></div>
+      </div>
+
+      <form id="sentence-form" class="sentence-form">
+        <input id="sentence-input" maxlength="220" data-i18n-placeholder="sentence_placeholder" autocomplete="off" disabled />
+        <button type="submit" class="btn btn-primary" id="sentence-submit" data-i18n="add_to_file" disabled></button>
+      </form>
+      <div class="timer-track"><div class="timer-fill" id="timer-fill"></div></div>
+    </main>
+  </div>
+</section>
+
+<!-- ======================= OVERLAY: CALLOUT ======================= -->
+<div id="overlay-callout" class="overlay hidden">
+  <div class="stamp-slam" id="stamp-slam"></div>
+  <div class="callout-card">
+    <div class="callout-head" data-i18n="derail_called"></div>
+    <p id="callout-desc" class="callout-desc"></p>
+    <div id="callout-picker" class="goal-picker"></div>
+    <div id="callout-waiting" class="hint hidden"></div>
+    <div id="callout-result" class="callout-result hidden"></div>
+    <div class="timer-track small"><div class="timer-fill" id="callout-timer-fill"></div></div>
+  </div>
+</div>
+
+<!-- ============================ SCREEN: VOTING ============================ -->
+<section id="screen-voting" class="screen">
+  <header class="topbar">
+    <div class="topbar-code"><span data-i18n="file_label"></span> <span id="voting-code">----</span></div>
+    <div class="topbar-round" data-i18n="the_verdict"></div>
+  </header>
+  <div class="voting-wrap">
+    <h2 class="section-title" data-i18n="did_they"></h2>
+    <p class="hint" data-i18n="verdict_sub"></p>
+    <ul id="voting-list" class="voting-list"></ul>
+  </div>
+</section>
+
+<!-- ============================ SCREEN: REVEAL ============================ -->
+<section id="screen-reveal" class="screen">
+  <header class="topbar">
+    <div class="topbar-code"><span data-i18n="file_label"></span> <span id="reveal-code">----</span></div>
+    <div class="topbar-round" data-i18n="case_closed"></div>
+  </header>
+  <div class="reveal-wrap">
+    <h2 class="section-title" data-i18n="final_scoreboard"></h2>
+    <ul id="reveal-scoreboard" class="scoreboard"></ul>
+
+    <h3 class="section-title small" data-i18n="full_story"></h3>
+    <div class="paper">
+      <div class="story-feed" id="reveal-story"></div>
+    </div>
+
+    <div id="reveal-host-controls" class="host-controls hidden">
+      <button id="btn-play-again" class="btn btn-primary btn-lg" data-i18n="play_again_btn"></button>
+    </div>
+  </div>
+</section>
+
+<footer class="credit-footer">
+  <span id="credit-line" data-i18n="credit_line"></span>
+</footer>
+
+<div id="toast-stack" class="toast-stack"></div>
+
+<script src="i18n.js"></script>
+<script src="sound.js"></script>
+<script src="client.js"></script>
+</body>
+</html>
