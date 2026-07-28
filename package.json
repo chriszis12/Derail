@@ -1,16 +1,21 @@
 {
-  "name": "derail-game",
+  "name": "derail",
   "version": "1.0.0",
-  "description": "Derail Game with Auth, Sound, and Settings",
+  "description": "Derail - a real-time collaborative storytelling party game with secret agendas",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
     "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2",
-    "sqlite3": "^5.1.7"
+    "express-session": "^1.18.0",
+    "passport": "^0.7.0",
+    "passport-github2": "^0.1.12",
+    "passport-google-oauth20": "^2.0.0",
+    "passport-oauth2": "^1.8.0",
+    "ws": "^8.17.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
