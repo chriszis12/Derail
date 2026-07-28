@@ -1,5 +1,5 @@
 // ============================================================================
-// DERAIL β€” client.js
+// DERAIL — client.js
 // Talks to the WebSocket server, keeps a copy of the room state, and renders
 // whichever screen matches the current game phase. Also wires up i18n,
 // sound effects, saved settings (localStorage), and the optional OAuth login.
@@ -25,32 +25,94 @@
   function initSettings() {
     const savedLang = localStorage.getItem("derail:lang") || (navigator.language || "en").slice(0, 2);
     i18nSetLang(["en", "el", "es"].includes(savedLang) ? savedLang : "en");
-    $("#lang-select").value = i18nGetLang();
 
     const savedName = localStorage.getItem("derail:name");
     if (savedName) $("#name-input").value = savedName;
 
-    updateSoundButton();
+    const reduceMotion = localStorage.getItem("derail:reduceMotion") === "1";
+    document.documentElement.classList.toggle("force-reduce-motion", reduceMotion);
+
+    syncSettingsUI();
     applyI18n();
   }
 
-  $("#lang-select").addEventListener("change", (e) => {
-    i18nSetLang(e.target.value);
-    applyI18n();
-    if (latestState) render(latestState);
-  });
-
-  $("#btn-sound").addEventListener("click", () => {
-    Sound.setMuted(!Sound.isMuted());
-    updateSoundButton();
-    Sound.click();
-  });
-
-  function updateSoundButton() {
-    const btn = $("#btn-sound");
-    btn.textContent = Sound.isMuted() ? "π”‡" : "π”";
-    btn.title = Sound.isMuted() ? t("sound_off") : t("sound_on");
+  function syncSettingsUI() {
+    $all(".lang-option").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.lang === i18nGetLang());
+    });
+    setToggle($("#toggle-sfx"), !Sound.isMuted());
+    setToggle($("#toggle-music"), !Music.isMuted());
+    setToggle($("#toggle-motion"), document.documentElement.classList.contains("force-reduce-motion"));
+    $("#sfx-volume").value = Sound.getVolume();
+    $("#music-volume").value = Music.getVolume();
   }
+
+  function setToggle(btn, on) {
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+
+  $("#btn-settings").addEventListener("click", () => {
+    syncSettingsUI();
+    $("#overlay-settings").classList.remove("hidden");
+  });
+  $("#btn-settings-close").addEventListener("click", () => $("#overlay-settings").classList.add("hidden"));
+  $("#overlay-settings").addEventListener("click", (e) => {
+    if (e.target.id === "overlay-settings") $("#overlay-settings").classList.add("hidden");
+  });
+
+  $all(".lang-option").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      i18nSetLang(btn.dataset.lang);
+      applyI18n();
+      syncSettingsUI();
+      if (latestState) render(latestState);
+      Sound.click();
+    });
+  });
+
+  $("#toggle-sfx").addEventListener("click", () => {
+    const nowOn = $("#toggle-sfx").getAttribute("aria-pressed") !== "true";
+    Sound.setMuted(!nowOn);
+    setToggle($("#toggle-sfx"), nowOn);
+    if (nowOn) Sound.click();
+  });
+  $("#sfx-volume").addEventListener("input", (e) => Sound.setVolume(parseFloat(e.target.value)));
+
+  $("#toggle-music").addEventListener("click", () => {
+    const nowOn = $("#toggle-music").getAttribute("aria-pressed") !== "true";
+    Music.setMuted(!nowOn);
+    setToggle($("#toggle-music"), nowOn);
+    if (nowOn) Music.start();
+    else Music.stop();
+  });
+  $("#music-volume").addEventListener("input", (e) => Music.setVolume(parseFloat(e.target.value)));
+
+  $("#toggle-motion").addEventListener("click", () => {
+    const nowOn = $("#toggle-motion").getAttribute("aria-pressed") !== "true";
+    document.documentElement.classList.toggle("force-reduce-motion", nowOn);
+    localStorage.setItem("derail:reduceMotion", nowOn ? "1" : "0");
+    setToggle($("#toggle-motion"), nowOn);
+  });
+
+  $("#btn-forget-me").addEventListener("click", () => {
+    ["derail:lang", "derail:name", "derail:muted", "derail:sfxVolume", "derail:musicMuted", "derail:musicVolume", "derail:reduceMotion"]
+      .forEach((k) => localStorage.removeItem(k));
+    location.reload();
+  });
+
+  // Browsers block audio until a real user gesture — kick the (muted-by-
+  // default) music engine off the first click anywhere, respecting the
+  // saved mute preference.
+  let musicKicked = false;
+  document.addEventListener(
+    "click",
+    () => {
+      if (musicKicked) return;
+      musicKicked = true;
+      if (!Music.isMuted()) Music.start();
+    },
+    { once: true, capture: true }
+  );
 
   $("#name-input").addEventListener("change", (e) => {
     localStorage.setItem("derail:name", e.target.value.trim().slice(0, 18));
@@ -93,7 +155,7 @@
       currentUser = meRes.user || null;
       renderAuthSection(providersRes.providers || []);
     } catch {
-      // auth endpoints unreachable (e.g. static preview) β€” just hide the section
+      // auth endpoints unreachable (e.g. static preview) — just hide the section
       $("#auth-section").classList.add("hidden");
     }
   }
@@ -160,7 +222,7 @@
       handleMessage(msg);
     });
     ws.addEventListener("close", () => {
-      showToast(t("toasts.connection_lost") || "connection lost β€” refresh to rejoin", "error");
+      showToast(t("toasts.connection_lost") || "connection lost — refresh to rejoin", "error");
     });
     return new Promise((resolve) => {
       ws.addEventListener("open", () => resolve(), { once: true });
@@ -305,7 +367,7 @@
   // ---------------------------------------------------------------------
 
   // A local mirror of the goal pool text so the accuser can pick a guess.
-  // (kept in sync with server.js GOAL_POOL β€” see README for how to extend both.)
+  // (kept in sync with server.js GOAL_POOL — see README for how to extend both.)
   const GOAL_POOL_CLIENT = [
     { id: "arrest", text: "The protagonist must get arrested for tax evasion." },
     { id: "horse", text: "Someone must ride a horse indoors." },
@@ -327,7 +389,7 @@
     { id: "dance", text: "A full choreographed dance number must break out." },
     { id: "twins", text: "A secret identical twin must appear." },
     { id: "portal", text: "A portal to another dimension must open." },
-    { id: "normal", text: "Keep things completely normal β€” no twists, no chaos. Just a mundane, uneventful scene." },
+    { id: "normal", text: "Keep things completely normal — no twists, no chaos. Just a mundane, uneventful scene." },
   ];
 
   let lastCalloutResolvedKey = null;
@@ -398,7 +460,7 @@
   }
 
   function CALLOUT_DUR() {
-    return 20; // seconds β€” mirrors server CALLOUT_SECONDS
+    return 20; // seconds — mirrors server CALLOUT_SECONDS
   }
 
   // ---------------------------------------------------------------------
@@ -438,7 +500,7 @@
     $("#banned-strip").innerHTML =
       `<b>${t("redacted_words")}</b> ` + state.bannedWords.map((w) => `<span class="word">${escapeHtml(w)}</span>`).join(" ");
 
-    // story feed β€” only animate lines that are new since the last render
+    // story feed — only animate lines that are new since the last render
     const feed = $("#story-feed");
     const prevLen = prevState?.story?.length ?? -1;
     feed.innerHTML = "";
@@ -476,7 +538,7 @@
       li.innerHTML = `
         <div class="who">
           <span class="n">${escapeHtml(p.name)}${p.id === myId ? " (you)" : ""}</span>
-          <span class="s">${p.score} ${t("pts")}${p.busted ? " Β· " + t("busted_tag") : ""}</span>
+          <span class="s">${p.score} ${t("pts")}${p.busted ? " · " + t("busted_tag") : ""}</span>
         </div>
         ${p.id !== myId ? `<button class="derail-btn" ${canCallOut ? "" : "disabled"}>${t("derail_btn")}</button>` : ""}
       `;
@@ -509,7 +571,7 @@
       if (!wasMyTurn) Sound.yourTurn();
     } else {
       const currentP = state.players.find((p) => p.id === state.currentTurnId);
-      turnEl.innerHTML = `${t("waiting_on")} <b>${escapeHtml(currentP?.name || "β€¦")}</b>&hellip;`;
+      turnEl.innerHTML = `${t("waiting_on")} <b>${escapeHtml(currentP?.name || "…")}</b>&hellip;`;
       input.disabled = true;
       submit.disabled = true;
     }

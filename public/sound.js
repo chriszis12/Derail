@@ -7,6 +7,7 @@
 const Sound = (() => {
   let ctx = null;
   let muted = localStorage.getItem("derail:muted") === "1";
+  let volume = parseFloat(localStorage.getItem("derail:sfxVolume") ?? "1");
 
   function getCtx() {
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -25,7 +26,7 @@ const Sound = (() => {
       osc.frequency.setValueAtTime(freq, t0);
       if (glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, t0 + duration);
       g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(gain, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain * volume), t0 + 0.01);
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
       osc.connect(g).connect(c.destination);
       osc.start(t0);
@@ -46,7 +47,7 @@ const Sound = (() => {
       const src = c.createBufferSource();
       src.buffer = buffer;
       const g = c.createGain();
-      g.gain.value = gain;
+      g.gain.value = gain * volume;
       src.connect(g).connect(c.destination);
       src.start(c.currentTime + delay);
     } catch {
@@ -56,9 +57,14 @@ const Sound = (() => {
 
   return {
     isMuted: () => muted,
+    getVolume: () => volume,
     setMuted(v) {
       muted = v;
       localStorage.setItem("derail:muted", v ? "1" : "0");
+    },
+    setVolume(v) {
+      volume = Math.max(0, Math.min(1, v));
+      localStorage.setItem("derail:sfxVolume", String(volume));
     },
     // a soft typewriter-key click for UI interactions
     click() {
@@ -106,3 +112,4 @@ const Sound = (() => {
     },
   };
 })();
+

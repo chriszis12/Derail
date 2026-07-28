@@ -160,21 +160,30 @@ instead of a duplicate seat.
 
 ## 6. What's new in this pass
 
+- **Credits fixed** — the footer is now `position: fixed` at the bottom of
+  every screen (it was previously just below the fold on taller pages), so
+  "a browser game by Christos Zisopoulos of Spaceland Studios Games" is
+  always visible.
+- **One settings menu** (⚙ top-right, all screens) replacing scattered
+  controls: a proper language *menu* (not a native dropdown) with flags for
+  English / Greek / Spanish, separate sound-effects and music toggles with
+  their own volume sliders, a "reduce motion" toggle for accessibility, and
+  a "forget my saved settings" reset button.
+- **Background music** — a slow, moody, procedurally-generated chord
+  progression (`public/music.js`) fitting the noir/case-file mood. Like the
+  sound effects, it's synthesized live via the Web Audio API, so there's no
+  audio file to host or license. Muted by default until you opt in from
+  Settings (browsers block autoplay audio until a real click happens anyway).
 - **Animations:** story lines fade in as they're added, the suspect rail and
   scoreboard stagger in, screens cross-fade on transition, the timer bar
   pulses red in the final seconds, and the BUSTED/NOT QUITE rubber-stamp
-  slams down with a little overshoot.
-- **Sound:** every effect (typewriter click, turn chime, timer tick, derail
-  siren, stamp thud, success/fail stings) is synthesized live with the Web
-  Audio API — no audio files to host. Mute state is remembered.
-- **Settings persistence:** your name, language, and mute preference are
-  saved in `localStorage` and restored on your next visit.
+  slams down with a little overshoot. All of it respects the "reduce motion"
+  setting and the OS-level `prefers-reduced-motion` flag.
+- **Settings persistence:** name, language, sound/music mute + volume, and
+  motion preference all live in `localStorage` and restore on your next visit.
 - **Languages:** English, Greek (Ελληνικά), and Spanish (Español) for all UI
-  chrome, buttons, and toast messages — switchable anytime from the top-right
-  corner. Scenario/goal *content* stays in English for now (see `i18n.js` for
-  where to add more).
-- **Credits:** "a browser game by Christos Zisopoulos of Spaceland Studios
-  Games" in the footer on every screen.
+  chrome, buttons, and toast messages. Scenario/goal *content* stays in
+  English for now (see `i18n.js` for where to add more).
 
 ## 7. Tuning the game
 
