@@ -185,7 +185,68 @@ instead of a duplicate seat.
   chrome, buttons, and toast messages. Scenario/goal *content* stays in
   English for now (see `i18n.js` for where to add more).
 
-## 7. Tuning the game
+## 7. Host-configurable match settings
+
+From the lobby, the host gets a **match settings** panel (everyone else sees
+a plain-language summary instead) covering:
+
+- **Language** — English, Greek, or Spanish. This isn't just the UI: the
+  opening scenario, all 21 secret goals, and the banned-word list are fully
+  translated and swapped per match, not just menu labels.
+- **Turn timer** — 10 / 15 / 20 / 30 seconds per sentence.
+- **Rounds** — 6 / 8 / 10 / 14 / 20 total sentences before the reveal.
+- **Trojan horse goal** — auto (only dealt with 3+ players, same as before),
+  always include, or never.
+- **Word bans ("chaos")** — off, normal (2 banned words), or chaos (4).
+- **Public** — lists the room for matchmaking (see below). Off by default;
+  a room with a code is private by default even with this off.
+
+Settings can only be changed while still in the lobby and only by the host.
+
+## 8. Matchmaking ("quick match")
+
+The home screen has a **quick match** button next to "start a new file". It
+looks for an existing public, not-yet-started room with fewer than 8 players
+(preferring one already set to your current UI language), and joins it. If
+nothing fits, it creates a fresh public room for the next person to land in.
+There's no skill-based or region-based matching — it's a simple "first open
+public seat" queue, which is honestly all a private party game needs, but
+worth knowing if you were picturing an ELO system.
+
+## 9. Player-name censoring
+
+Names are checked against a short, common-terms blocklist (see
+`NAME_BLOCKLIST` in `server.js`) and any match gets everything after its
+first letter replaced with asterisks (`fuck` → `f***`). This applies **only**
+to display names — never to the sentences players write into the story,
+since filtering the actual gameplay text would gut the whole joke of the
+game. It's a lightweight substring filter, not a comprehensive moderation
+system: obvious misspellings/leetspeak (`fu(k`, `ffuuuck`) will slip past it.
+Swap in a proper library (e.g. `bad-words` or `obscenity`) in `censorName()`
+if you need something sturdier for a public deployment.
+
+## 10. Character avatars
+
+Every player picks a small procedurally-drawn character from the home screen
+(the circular preview button next to your name) — a body color (8 options),
+a hat (6, including a tinfoil hat, because of course), and an outfit (6,
+trench coat / tie / sweater / hoodie / scarf / none). It's genuinely custom
+and rendered as inline SVG (`public/avatar.js`, no image files, no external
+requests), but it's intentionally scoped well below "Among Us item shop"
+depth — no unlockables, no pets, no seasonal items. Adding more options means
+adding more entries to `AVATAR_SKINS` / `AVATAR_HATS` / `AVATAR_ACCESSORIES`
+in `avatar.js` and a matching SVG snippet; the picker UI adapts automatically.
+
+## 11. Better invite links
+
+Opening a `?join=CODE` link now: prefills and cleans up the URL, shows a
+"joining room XXXX" banner, focuses the name field so there's exactly one
+thing left to do, and lets you hit Enter in the name field to jump straight
+into the join (or create a room, if no code is present). The "copy invite
+link" button uses the native share sheet on mobile (`navigator.share`) when
+available, falling back to clipboard-copy everywhere else.
+
+## 12. Tuning the game
 
 Everything that controls game feel lives at the top of `server.js`:
 
@@ -198,14 +259,24 @@ Everything that controls game feel lives at the top of `server.js`:
   the "stay normal" objective, only dealt in games of 3+ players)
 - `BANNED_WORD_POOL` — words the engine can randomly redact for a round
 
-**Important:** if you edit `GOAL_POOL` in `server.js`, also update the mirrored
-`GOAL_POOL_CLIENT` array near the top of `public/client.js` — that copy is what
-lets an accuser pick a guess from a multiple-choice list client-side without
-the server leaking every player's goal to everyone.
+**Important:** if you edit `GOAL_POOL_BY_LANG` in `server.js`, also update the
+mirrored `GOAL_POOL_CLIENT_BY_LANG` object near the top of `public/client.js`
+— that copy is what lets an accuser pick a guess from a multiple-choice list
+client-side without the server leaking every player's goal to everyone. Same
+goes for `SCENARIOS_BY_LANG` and `BANNED_WORD_POOL_BY_LANG` if you add a
+fourth language — the client-side callout picker doesn't need those two, only
+the goal pool.
 
-## 5. Known scope / what's not built
+## 13. Known scope / what's not built
 
-- No accounts, no persistent leaderboard across sessions — scores reset on
-  "start a new file" only if you press it, but never survive a server restart.
-- No profanity filter on free-text sentences beyond the banned-word mechanic.
+- No persistent leaderboard or match history across sessions — scores reset
+  whenever "start a new file" is pressed, and nothing survives a server
+  restart (OAuth accounts identify you, but don't carry stats anywhere).
+- Matchmaking is "first open public room," not skill- or region-based.
+- The name censor is a simple substring blocklist — obvious leetspeak/spacing
+  tricks will get through (see section 9).
+- Avatars are a genuinely custom but intentionally small system — 8 colors ×
+  6 hats × 6 outfits, no unlockables or seasonal items.
+- Scenario/goal *content* is translated for English/Greek/Spanish; adding a
+  fourth language means writing a new content pool, not just UI strings.
 - Designed for roughly 2–8 players per room; there's no hard cap enforced.

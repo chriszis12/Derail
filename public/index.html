@@ -87,17 +87,24 @@
 
       <div class="field">
         <label for="name-input" data-i18n="name_label"></label>
-        <input id="name-input" maxlength="18" data-i18n-placeholder="name_placeholder" autocomplete="off" />
+        <div class="name-row">
+          <input id="name-input" maxlength="18" data-i18n-placeholder="name_placeholder" autocomplete="off" />
+          <button id="btn-customize" class="avatar-preview-btn" type="button" title="customize character">
+            <span id="avatar-preview"></span>
+          </button>
+        </div>
       </div>
 
       <div class="home-actions">
         <button id="btn-create" class="btn btn-primary" data-i18n="create_btn"></button>
+        <button id="btn-quick-match" class="btn btn-secondary" data-i18n="quick_match_btn"></button>
         <div class="divider"><span data-i18n="or"></span></div>
         <div class="join-row">
           <input id="code-input" maxlength="4" data-i18n-placeholder="code_placeholder" autocomplete="off" class="code-input" />
           <button id="btn-join" class="btn btn-secondary" data-i18n="join_btn"></button>
         </div>
       </div>
+      <p id="join-banner" class="join-banner hidden"></p>
       <p id="home-error" class="error-line"></p>
     </div>
 
@@ -107,6 +114,30 @@
     </details>
   </div>
 </section>
+
+<!-- ======================= OVERLAY: AVATAR BUILDER ======================= -->
+<div id="overlay-avatar" class="overlay hidden">
+  <div class="callout-card avatar-card">
+    <div class="callout-head" data-i18n="avatar_title"></div>
+    <div class="avatar-builder">
+      <div id="avatar-big-preview" class="avatar-big-preview"></div>
+
+      <div class="avatar-picker-block">
+        <div class="settings-label" data-i18n="avatar_color"></div>
+        <div id="avatar-skin-swatches" class="swatch-row"></div>
+      </div>
+      <div class="avatar-picker-block">
+        <div class="settings-label" data-i18n="avatar_hat"></div>
+        <div id="avatar-hat-options" class="option-row"></div>
+      </div>
+      <div class="avatar-picker-block">
+        <div class="settings-label" data-i18n="avatar_outfit"></div>
+        <div id="avatar-accessory-options" class="option-row"></div>
+      </div>
+    </div>
+    <button id="btn-avatar-done" class="btn btn-primary settings-done" data-i18n="settings_close"></button>
+  </div>
+</div>
 
 <!-- ============================ SCREEN: LOBBY ============================ -->
 <section id="screen-lobby" class="screen">
@@ -118,6 +149,64 @@
   <div class="lobby-wrap">
     <h2 class="section-title" data-i18n="the_roster"></h2>
     <ul id="lobby-players" class="roster"></ul>
+
+    <div id="match-settings-block" class="match-settings hidden">
+      <h3 class="rail-title" data-i18n="match_settings_title"></h3>
+
+      <div class="match-setting-row">
+        <span data-i18n="settings_language"></span>
+        <div id="match-lang-menu" class="lang-menu inline">
+          <button class="lang-option" data-lang="en">🇬🇧 EN</button>
+          <button class="lang-option" data-lang="el">🇬🇷 EL</button>
+          <button class="lang-option" data-lang="es">🇪🇸 ES</button>
+        </div>
+      </div>
+
+      <div class="match-setting-row">
+        <span data-i18n="match_turn_time"></span>
+        <select id="match-turn-seconds" class="mini-select">
+          <option value="10">10s</option>
+          <option value="15">15s</option>
+          <option value="20">20s</option>
+          <option value="30">30s</option>
+        </select>
+      </div>
+
+      <div class="match-setting-row">
+        <span data-i18n="match_rounds"></span>
+        <select id="match-max-rounds" class="mini-select">
+          <option value="6">6</option>
+          <option value="8">8</option>
+          <option value="10">10</option>
+          <option value="14">14</option>
+          <option value="20">20</option>
+        </select>
+      </div>
+
+      <div class="match-setting-row">
+        <span data-i18n="match_trojan"></span>
+        <select id="match-trojan-mode" class="mini-select">
+          <option value="auto" data-i18n="match_trojan_auto"></option>
+          <option value="always" data-i18n="match_trojan_always"></option>
+          <option value="never" data-i18n="match_trojan_never"></option>
+        </select>
+      </div>
+
+      <div class="match-setting-row">
+        <span data-i18n="match_chaos"></span>
+        <select id="match-chaos" class="mini-select">
+          <option value="off" data-i18n="match_chaos_off"></option>
+          <option value="normal" data-i18n="match_chaos_normal"></option>
+          <option value="chaos" data-i18n="match_chaos_chaos"></option>
+        </select>
+      </div>
+
+      <div class="match-setting-row">
+        <span data-i18n="match_public"></span>
+        <button id="toggle-public" class="toggle-switch" role="switch"><span class="knob"></span></button>
+      </div>
+    </div>
+    <p id="match-settings-readonly" class="hint hidden"></p>
 
     <div id="host-controls" class="host-controls">
       <button id="btn-start" class="btn btn-primary btn-lg" data-i18n="start_game_btn"></button>
@@ -226,6 +315,7 @@
 <script src="i18n.js"></script>
 <script src="sound.js"></script>
 <script src="music.js"></script>
+<script src="avatar.js"></script>
 <script src="client.js"></script>
 </body>
 </html>

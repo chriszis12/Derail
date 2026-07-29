@@ -1008,3 +1008,144 @@ input:focus-visible { border-bottom-color: var(--redink); }
 }
 
 .btn-ghost.full { width: 100%; text-align: center; margin-top: 4px; }
+
+/* =============================================================================
+   Avatar preview button + builder
+============================================================================= */
+
+.name-row { display: flex; gap: 8px; align-items: flex-end; }
+.name-row input { flex: 1; }
+
+.avatar-preview-btn {
+  flex-shrink: 0;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--charcoal);
+  background: var(--paper-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+}
+.avatar-preview-btn:hover { border-color: var(--redink); }
+.avatar-preview-btn svg { display: block; }
+
+.join-banner {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--brass-soft);
+  background: rgba(180,143,61,0.1);
+  border: 1px dashed var(--brass-soft);
+  border-radius: 2px;
+  padding: 8px 10px;
+  margin: 10px 0 0;
+}
+
+.avatar-card { width: min(420px, 100%); }
+.avatar-builder { display: grid; gap: 14px; margin: 10px 0 18px; }
+.avatar-big-preview {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 4px;
+}
+.avatar-big-preview svg { filter: drop-shadow(0 6px 10px rgba(0,0,0,0.35)); }
+
+.avatar-picker-block .settings-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--charcoal-soft);
+  margin-bottom: 8px;
+}
+
+.swatch-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch-btn {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.swatch-btn.active { border-color: var(--charcoal); box-shadow: 0 0 0 2px var(--paper); }
+
+.option-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.option-btn {
+  border: 1.5px solid rgba(42,35,27,0.25);
+  background: var(--paper-2);
+  border-radius: 2px;
+  padding: 6px 10px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.option-btn svg { display: block; }
+.option-btn.active { border-color: var(--redink); background: var(--paper-3); font-weight: 600; }
+
+/* small avatar icon wherever a player is listed */
+.mini-avatar {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.mini-avatar svg { width: 100%; height: 100%; }
+.roster li .name-with-avatar, .suspect .who, .scoreboard li { display: flex; align-items: center; gap: 8px; }
+
+/* =============================================================================
+   Match settings panel (lobby, host-only)
+============================================================================= */
+
+.match-settings {
+  background: var(--ink-2);
+  border: 1px solid rgba(180,143,61,0.25);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.match-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+}
+
+.lang-menu.inline { display: flex; gap: 6px; }
+.lang-menu.inline .lang-option {
+  padding: 5px 8px;
+  font-size: 11.5px;
+  background: var(--ink-3);
+  color: var(--paper);
+  border: 1px solid rgba(180,143,61,0.25);
+}
+.lang-menu.inline .lang-option.active { border-color: var(--brass); background: var(--ink); }
+
+.mini-select {
+  background: var(--ink-3);
+  color: var(--paper);
+  border: 1px solid rgba(180,143,61,0.3);
+  border-radius: 2px;
+  padding: 6px 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* =============================================================================
+   Quick-match button
+============================================================================= */
+
+.btn-secondary#btn-quick-match { margin-top: 8px; }

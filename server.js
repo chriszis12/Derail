@@ -102,62 +102,186 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 // ----------------------------------------------------------------------------
-// Content pools
+// Content pools — one set per supported match language. Goal `id`s stay
+// identical across languages (only `text` changes) because the callout
+// guess-picker matches on id, not text.
 // ----------------------------------------------------------------------------
 
-const SCENARIOS = [
-  "Dave walks into a diner at 2:00 AM and sits at the counter.",
-  "The city council meeting starts thirty seconds late, as always.",
-  "Margaret finds a package on her porch that she didn't order.",
-  "The intern is the last one left in the office at 6 PM.",
-  "A man in a rumpled suit boards the 11:42 train to nowhere in particular.",
-  "The wedding photographer arrives an hour before the ceremony.",
-  "Two coworkers are stuck in an elevator between the 3rd and 4th floor.",
-  "The new tenant is unpacking boxes in apartment 4B.",
-  "A substitute teacher takes attendance for the first time.",
-  "The night security guard clocks in for another quiet shift at the museum.",
-];
+const SCENARIOS_BY_LANG = {
+  en: [
+    "Dave walks into a diner at 2:00 AM and sits at the counter.",
+    "The city council meeting starts thirty seconds late, as always.",
+    "Margaret finds a package on her porch that she didn't order.",
+    "The intern is the last one left in the office at 6 PM.",
+    "A man in a rumpled suit boards the 11:42 train to nowhere in particular.",
+    "The wedding photographer arrives an hour before the ceremony.",
+    "Two coworkers are stuck in an elevator between the 3rd and 4th floor.",
+    "The new tenant is unpacking boxes in apartment 4B.",
+    "A substitute teacher takes attendance for the first time.",
+    "The night security guard clocks in for another quiet shift at the museum.",
+  ],
+  el: [
+    "Ο Ντίνος μπαίνει σε ένα εστιατόριο στις 2:00 τη νύχτα και κάθεται στον πάγκο.",
+    "Η συνεδρίαση του δημοτικού συμβουλίου ξεκινά, όπως πάντα, με μισό λεπτό καθυστέρηση.",
+    "Η Μαργαρίτα βρίσκει ένα δέμα στη βεράντα της που δεν είχε παραγγείλει.",
+    "Ο ασκούμενος είναι ο τελευταίος που έχει μείνει στο γραφείο στις 6 το απόγευμα.",
+    "Ένας άντρας με τσαλακωμένο κοστούμι επιβιβάζεται στο τρένο των 11:42, χωρίς συγκεκριμένο προορισμό.",
+    "Ο φωτογράφος του γάμου φτάνει μία ώρα πριν την τελετή.",
+    "Δύο συνάδελφοι μένουν κολλημένοι στο ασανσέρ ανάμεσα στον 3ο και τον 4ο όροφο.",
+    "Ο νέος ένοικος ξεπακετάρει κούτες στο διαμέρισμα 4Β.",
+    "Μια αναπληρώτρια καθηγήτρια παίρνει παρουσίες για πρώτη φορά.",
+    "Ο νυχτοφύλακας του μουσείου μπαίνει βάρδια για άλλη μια ήσυχη νύχτα.",
+  ],
+  es: [
+    "Dave entra en una cafetería a las 2:00 AM y se sienta en la barra.",
+    "La reunión del ayuntamiento empieza, como siempre, treinta segundos tarde.",
+    "Margarita encuentra un paquete en su porche que no había pedido.",
+    "El becario es el último que queda en la oficina a las 6 de la tarde.",
+    "Un hombre con traje arrugado sube al tren de las 11:42 sin destino concreto.",
+    "El fotógrafo de la boda llega una hora antes de la ceremonia.",
+    "Dos compañeros de trabajo quedan atrapados en el ascensor entre el piso 3 y el 4.",
+    "El nuevo inquilino está desempacando cajas en el apartamento 4B.",
+    "Una profesora sustituta pasa lista por primera vez.",
+    "El guardia de seguridad nocturno ficha para otro turno tranquilo en el museo.",
+  ],
+};
 
-// Regular goals. `trojan: true` marks the one "just be normal" goal.
-const GOAL_POOL = [
-  { id: "arrest", text: "The protagonist must get arrested for tax evasion.", trojan: false },
-  { id: "horse", text: "Someone must ride a horse indoors.", trojan: false },
-  { id: "ghost", text: "It must be revealed that the protagonist has been a ghost the whole time.", trojan: false },
-  { id: "space", text: "The building must physically launch into space.", trojan: false },
-  { id: "wedding", text: "An unplanned wedding must happen before the scene ends.", trojan: false },
-  { id: "clone", text: "A character must turn out to be a clone or robot double.", trojan: false },
-  { id: "kfire", text: "A kitchen fire must break out.", trojan: false },
-  { id: "singing", text: "The scene must break into spontaneous group singing.", trojan: false },
-  { id: "raccoon", text: "A raccoon must be revealed as the real mastermind.", trojan: false },
-  { id: "timeloop", text: "It must become clear that this exact scene has happened before.", trojan: false },
-  { id: "lottery", text: "Someone must win the lottery mid-scene.", trojan: false },
-  { id: "alien", text: "A character must be exposed as an alien in disguise.", trojan: false },
-  { id: "shrek", text: "The story must become a legally-distinct version of a certain ogre movie.", trojan: false },
-  { id: "flood", text: "The room must start flooding with water.", trojan: false },
-  { id: "celebrity", text: "A world-famous celebrity must walk in and be recognized.", trojan: false },
-  { id: "breakup", text: "Two characters must break up on the spot.", trojan: false },
-  { id: "heist", text: "A heist must begin before the scene ends.", trojan: false },
-  { id: "dance", text: "A full choreographed dance number must break out.", trojan: false },
-  { id: "twins", text: "A secret identical twin must appear.", trojan: false },
-  { id: "portal", text: "A portal to another dimension must open.", trojan: false },
-  { id: "normal", text: "Keep things completely normal — no twists, no chaos. Just a mundane, uneventful scene.", trojan: true },
-];
+// `trojan: true` marks the one "just be normal" goal.
+const GOAL_POOL_BY_LANG = {
+  en: [
+    { id: "arrest", text: "The protagonist must get arrested for tax evasion.", trojan: false },
+    { id: "horse", text: "Someone must ride a horse indoors.", trojan: false },
+    { id: "ghost", text: "It must be revealed that the protagonist has been a ghost the whole time.", trojan: false },
+    { id: "space", text: "The building must physically launch into space.", trojan: false },
+    { id: "wedding", text: "An unplanned wedding must happen before the scene ends.", trojan: false },
+    { id: "clone", text: "A character must turn out to be a clone or robot double.", trojan: false },
+    { id: "kfire", text: "A kitchen fire must break out.", trojan: false },
+    { id: "singing", text: "The scene must break into spontaneous group singing.", trojan: false },
+    { id: "raccoon", text: "A raccoon must be revealed as the real mastermind.", trojan: false },
+    { id: "timeloop", text: "It must become clear that this exact scene has happened before.", trojan: false },
+    { id: "lottery", text: "Someone must win the lottery mid-scene.", trojan: false },
+    { id: "alien", text: "A character must be exposed as an alien in disguise.", trojan: false },
+    { id: "shrek", text: "The story must become a legally-distinct version of a certain ogre movie.", trojan: false },
+    { id: "flood", text: "The room must start flooding with water.", trojan: false },
+    { id: "celebrity", text: "A world-famous celebrity must walk in and be recognized.", trojan: false },
+    { id: "breakup", text: "Two characters must break up on the spot.", trojan: false },
+    { id: "heist", text: "A heist must begin before the scene ends.", trojan: false },
+    { id: "dance", text: "A full choreographed dance number must break out.", trojan: false },
+    { id: "twins", text: "A secret identical twin must appear.", trojan: false },
+    { id: "portal", text: "A portal to another dimension must open.", trojan: false },
+    { id: "normal", text: "Keep things completely normal — no twists, no chaos. Just a mundane, uneventful scene.", trojan: true },
+  ],
+  el: [
+    { id: "arrest", text: "Ο πρωταγωνιστής πρέπει να συλληφθεί για φοροδιαφυγή.", trojan: false },
+    { id: "horse", text: "Κάποιος πρέπει να καβαλήσει άλογο μέσα σε κλειστό χώρο.", trojan: false },
+    { id: "ghost", text: "Πρέπει να αποκαλυφθεί ότι ο πρωταγωνιστής ήταν φάντασμα από την αρχή.", trojan: false },
+    { id: "space", text: "Το κτίριο πρέπει κυριολεκτικά να εκτοξευτεί στο διάστημα.", trojan: false },
+    { id: "wedding", text: "Πρέπει να γίνει ένας απρογραμμάτιστος γάμος πριν τελειώσει η σκηνή.", trojan: false },
+    { id: "clone", text: "Κάποιος χαρακτήρας πρέπει να αποδειχθεί κλώνος ή ρομποτικό διπλό.", trojan: false },
+    { id: "kfire", text: "Πρέπει να ξεσπάσει φωτιά στην κουζίνα.", trojan: false },
+    { id: "singing", text: "Η σκηνή πρέπει να μετατραπεί ξαφνικά σε ομαδικό τραγούδι.", trojan: false },
+    { id: "raccoon", text: "Ένα ρακούν πρέπει να αποκαλυφθεί ως ο πραγματικός εγκέφαλος όλων.", trojan: false },
+    { id: "timeloop", text: "Πρέπει να γίνει σαφές ότι αυτή ακριβώς η σκηνή έχει ξαναγίνει.", trojan: false },
+    { id: "lottery", text: "Κάποιος πρέπει να κερδίσει το λαχείο μέσα στη σκηνή.", trojan: false },
+    { id: "alien", text: "Ένας χαρακτήρας πρέπει να αποκαλυφθεί ως εξωγήινος μεταμφιεσμένος.", trojan: false },
+    { id: "shrek", text: "Η ιστορία πρέπει να μετατραπεί σε μια «διαφορετική» εκδοχή μιας γνωστής ταινίας με ένα πράσινο τέρας.", trojan: false },
+    { id: "flood", text: "Ο χώρος πρέπει να αρχίσει να πλημμυρίζει με νερό.", trojan: false },
+    { id: "celebrity", text: "Μια παγκοσμίως διάσημη διασημότητα πρέπει να μπει και να αναγνωριστεί.", trojan: false },
+    { id: "breakup", text: "Δύο χαρακτήρες πρέπει να χωρίσουν επιτόπου.", trojan: false },
+    { id: "heist", text: "Πρέπει να ξεκινήσει μια ληστεία πριν τελειώσει η σκηνή.", trojan: false },
+    { id: "dance", text: "Πρέπει να ξεσπάσει ένας ολοκληρωμένος χορευτικός αριθμός.", trojan: false },
+    { id: "twins", text: "Πρέπει να εμφανιστεί ένας κρυφός πανομοιότυπος δίδυμος.", trojan: false },
+    { id: "portal", text: "Πρέπει να ανοίξει μια πύλη προς άλλη διάσταση.", trojan: false },
+    { id: "normal", text: "Κράτα τα πράγματα εντελώς φυσιολογικά — καμία ανατροπή, καμία τρέλα. Απλώς μια ήσυχη, καθημερινή σκηνή.", trojan: true },
+  ],
+  es: [
+    { id: "arrest", text: "El protagonista debe ser arrestado por evasión de impuestos.", trojan: false },
+    { id: "horse", text: "Alguien debe montar un caballo dentro de un edificio.", trojan: false },
+    { id: "ghost", text: "Debe revelarse que el protagonista ha sido un fantasma todo el tiempo.", trojan: false },
+    { id: "space", text: "El edificio debe lanzarse físicamente al espacio.", trojan: false },
+    { id: "wedding", text: "Debe ocurrir una boda improvisada antes de que termine la escena.", trojan: false },
+    { id: "clone", text: "Un personaje debe resultar ser un clon o doble robótico.", trojan: false },
+    { id: "kfire", text: "Debe estallar un incendio en la cocina.", trojan: false },
+    { id: "singing", text: "La escena debe convertirse de repente en un número musical grupal.", trojan: false },
+    { id: "raccoon", text: "Un mapache debe ser revelado como el verdadero cerebro detrás de todo.", trojan: false },
+    { id: "timeloop", text: "Debe quedar claro que esta misma escena ya ha ocurrido antes.", trojan: false },
+    { id: "lottery", text: "Alguien debe ganar la lotería en medio de la escena.", trojan: false },
+    { id: "alien", text: "Un personaje debe ser expuesto como un extraterrestre disfrazado.", trojan: false },
+    { id: "shrek", text: "La historia debe convertirse en una versión «legalmente distinta» de cierta película de un ogro verde.", trojan: false },
+    { id: "flood", text: "El lugar debe empezar a inundarse de agua.", trojan: false },
+    { id: "celebrity", text: "Una celebridad mundialmente famosa debe entrar y ser reconocida.", trojan: false },
+    { id: "breakup", text: "Dos personajes deben romper su relación en el acto.", trojan: false },
+    { id: "heist", text: "Debe comenzar un atraco antes de que termine la escena.", trojan: false },
+    { id: "dance", text: "Debe estallar un número de baile totalmente coreografiado.", trojan: false },
+    { id: "twins", text: "Debe aparecer un gemelo idéntico secreto.", trojan: false },
+    { id: "portal", text: "Debe abrirse un portal a otra dimensión.", trojan: false },
+    { id: "normal", text: "Mantén todo completamente normal — sin giros, sin caos. Solo una escena tranquila y cotidiana.", trojan: true },
+  ],
+};
 
-const BANNED_WORD_POOL = [
-  "suddenly", "alien", "gun", "ghost", "explode", "magic", "secretly",
-  "horse", "space", "wedding", "fire", "twin", "portal", "clone",
-  "dance", "raccoon", "flood", "shrek", "lottery", "heist",
-];
+const BANNED_WORD_POOL_BY_LANG = {
+  en: [
+    "suddenly", "alien", "gun", "ghost", "explode", "magic", "secretly",
+    "horse", "space", "wedding", "fire", "twin", "portal", "clone",
+    "dance", "raccoon", "flood", "shrek", "lottery", "heist",
+  ],
+  el: [
+    "ξαφνικά", "εξωγήινος", "όπλο", "φάντασμα", "εκρήγνυται", "μαγικό", "κρυφά",
+    "άλογο", "διάστημα", "γάμος", "φωτιά", "δίδυμος", "πύλη", "κλώνος",
+    "χορός", "ρακούν", "πλημμύρα", "λαχείο", "ληστεία",
+  ],
+  es: [
+    "de repente", "extraterrestre", "pistola", "fantasma", "explota", "mágico", "secretamente",
+    "caballo", "espacio", "boda", "incendio", "gemelo", "portal", "clon",
+    "baile", "mapache", "inundación", "lotería", "atraco",
+  ],
+};
+
+const SUPPORTED_LANGS = ["en", "el", "es"];
+function normalizeLang(lang) {
+  return SUPPORTED_LANGS.includes(lang) ? lang : "en";
+}
 
 // ----------------------------------------------------------------------------
-// Tunables
+// Player-name profanity filter (names only — never applied to story text,
+// that would ruin the whole point of the game). Deliberately a short,
+// common-terms list rather than an exhaustive one; masks everything after
+// the first character of each match.
 // ----------------------------------------------------------------------------
 
-const TURN_SECONDS = 15;
-const MAX_ROUNDS = 10;
-const GAME_TIME_LIMIT_MS = 3 * 60 * 1000;
+const NAME_BLOCKLIST = [
+  "fuck", "shit", "bitch", "cunt", "asshole", "dick", "pussy", "whore", "slut",
+  "nigger", "nigga", "faggot", "retard", "rape", "porn", "hitler", "nazi",
+];
+
+function censorName(raw) {
+  let name = String(raw || "").trim().slice(0, 18);
+  if (!name) return "Player";
+  NAME_BLOCKLIST.forEach((word) => {
+    const re = new RegExp(word, "ig");
+    name = name.replace(re, (match) => match[0] + "*".repeat(Math.max(1, match.length - 1)));
+  });
+  // if literally nothing but symbols/asterisks survived, fall back to a safe default
+  if (!/[a-zA-Z0-9\u0370-\u03ff\u1f00-\u1fff\u00c0-\u017f]/.test(name.replace(/\*/g, ""))) {
+    return "Player";
+  }
+  return name;
+}
+
+// ----------------------------------------------------------------------------
+// Tunables (defaults — the host can override per-room in the lobby)
+// ----------------------------------------------------------------------------
+
+const TURN_SECONDS_DEFAULT = 15;
+const MAX_ROUNDS_DEFAULT = 10;
+const GAME_TIME_LIMIT_MS = 6 * 60 * 1000; // hard backstop, independent of host settings
 const VOTE_SECONDS = 15;
 const CALLOUT_SECONDS = 20;
+
+const TURN_SECONDS_OPTIONS = [10, 15, 20, 30];
+const MAX_ROUNDS_OPTIONS = [6, 8, 10, 14, 20];
+const TROJAN_MODES = ["auto", "always", "never"]; // auto = only when 3+ players
+const CHAOS_LEVELS = { off: 0, normal: 2, chaos: 4 };
 
 // ----------------------------------------------------------------------------
 // Room state
@@ -181,6 +305,14 @@ function makeRoom(code) {
     players: new Map(), // id -> player
     hostId: null,
     state: "lobby", // lobby | playing | callout | voting | reveal
+    settings: {
+      language: "en",
+      turnSeconds: TURN_SECONDS_DEFAULT,
+      maxRounds: MAX_ROUNDS_DEFAULT,
+      trojanMode: "auto", // auto | always | never
+      chaos: "normal", // off | normal | chaos — how many words get banned per round
+      isPublic: false, // visible to "quick match"?
+    },
     scenario: null,
     story: [], // { text, playerId, name }
     turnOrder: [],
@@ -219,13 +351,15 @@ function roomSnapshot(room, forPlayerId) {
     type: "state",
     code: room.code,
     state: room.state,
+    settings: room.settings,
+    isHostMe: !!me?.isHost,
     scenario: room.scenario,
     story: room.story,
     players: Array.from(room.players.values()).map(publicPlayer),
     turnOrder: room.turnOrder,
     currentTurnId: room.turnOrder[room.currentTurnIndex] || null,
     round: room.round,
-    maxRounds: MAX_ROUNDS,
+    maxRounds: room.settings.maxRounds,
     bannedWords: room.bannedWords,
     turnEndsAt: room.turnEndsAt,
     myGoal: me && me.goal ? me.goal.text : null,
@@ -245,6 +379,7 @@ function roomSnapshot(room, forPlayerId) {
           subjects: room.voting.subjects.map((id) => ({
             id,
             name: room.players.get(id)?.name,
+            avatar: room.players.get(id)?.avatar || null,
             goal: room.reveal ? room.reveal.goals[id] : null,
           })),
           endsAt: room.voting.endsAt,
@@ -301,12 +436,19 @@ function startGame(room) {
   room.voting = null;
   room.reveal = null;
 
+  const lang = normalizeLang(room.settings.language);
+  const SCENARIOS = SCENARIOS_BY_LANG[lang];
+  const GOAL_POOL = GOAL_POOL_BY_LANG[lang];
+  const BANNED_WORD_POOL = BANNED_WORD_POOL_BY_LANG[lang];
+
   room.scenario = SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)];
 
-  // Assign goals: guarantee one trojan goal max, rest unique non-trojan.
+  // Assign goals: guarantee one trojan goal max, rest unique non-trojan,
+  // according to the host's trojanMode setting.
   const trojan = GOAL_POOL.find((g) => g.trojan);
   const normalGoals = shuffle(GOAL_POOL.filter((g) => !g.trojan));
-  const includeTrojan = players.length >= 3; // only worth it with enough players
+  const trojanMode = TROJAN_MODES.includes(room.settings.trojanMode) ? room.settings.trojanMode : "auto";
+  const includeTrojan = trojanMode === "always" || (trojanMode === "auto" && players.length >= 3);
   const chosen = includeTrojan ? [trojan, ...normalGoals] : normalGoals;
 
   const shuffledPlayers = shuffle(players);
@@ -316,7 +458,8 @@ function startGame(room) {
     p.calledOutCorrectlyBy = null;
   });
 
-  room.bannedWords = shuffle(BANNED_WORD_POOL).slice(0, 2);
+  const chaosCount = CHAOS_LEVELS[room.settings.chaos] ?? CHAOS_LEVELS.normal;
+  room.bannedWords = chaosCount > 0 ? shuffle(BANNED_WORD_POOL).slice(0, chaosCount) : [];
   room.turnOrder = shuffle(players.map((p) => p.id));
   room.currentTurnIndex = 0;
   room.skipNextTurn = new Set();
@@ -340,7 +483,8 @@ function activeCandidates(room) {
 function advanceToNextWriter(room, isFirst = false) {
   clearTurnTimer(room);
 
-  if (room.round >= MAX_ROUNDS || Date.now() - room.startedAt >= GAME_TIME_LIMIT_MS) {
+  const maxRounds = room.settings.maxRounds || MAX_ROUNDS_DEFAULT;
+  if (room.round >= maxRounds || Date.now() - room.startedAt >= GAME_TIME_LIMIT_MS) {
     return startReveal(room);
   }
   if (activeCandidates(room).length === 0) {
@@ -348,7 +492,7 @@ function advanceToNextWriter(room, isFirst = false) {
   }
 
   if (!isFirst) room.round += 1;
-  if (room.round >= MAX_ROUNDS) {
+  if (room.round >= maxRounds) {
     return startReveal(room);
   }
 
@@ -376,14 +520,15 @@ function advanceToNextWriter(room, isFirst = false) {
 }
 
 function startTurnTimer(room) {
-  room.turnEndsAt = Date.now() + TURN_SECONDS * 1000;
+  const seconds = room.settings.turnSeconds || TURN_SECONDS_DEFAULT;
+  room.turnEndsAt = Date.now() + seconds * 1000;
   clearTurnTimer(room);
   room.turnTimer = setTimeout(() => {
     const currentId = room.turnOrder[room.currentTurnIndex];
     toast(room, currentId, "turn_skipped", "warn");
     advanceToNextWriter(room);
     broadcast(room);
-  }, TURN_SECONDS * 1000);
+  }, seconds * 1000);
 }
 
 function clearTurnTimer(room) {
@@ -470,7 +615,7 @@ function resolveCallout(room, guessedGoalId) {
 
   room.callout.resolved = {
     correct,
-    guessText: guessedGoalId ? GOAL_POOL.find((g) => g.id === guessedGoalId)?.text : null,
+    guessText: guessedGoalId ? GOAL_POOL_BY_LANG[normalizeLang(room.settings.language)].find((g) => g.id === guessedGoalId)?.text : null,
     actualText: target ? target.goal.text : null,
   };
   broadcast(room);
@@ -583,6 +728,43 @@ function playAgain(room) {
   broadcast(room);
 }
 
+function updateMatchSettings(room, patch) {
+  if (room.state !== "lobby") return;
+  const s = room.settings;
+  if (patch.language !== undefined) s.language = normalizeLang(patch.language);
+  if (patch.turnSeconds !== undefined && TURN_SECONDS_OPTIONS.includes(Number(patch.turnSeconds))) {
+    s.turnSeconds = Number(patch.turnSeconds);
+  }
+  if (patch.maxRounds !== undefined && MAX_ROUNDS_OPTIONS.includes(Number(patch.maxRounds))) {
+    s.maxRounds = Number(patch.maxRounds);
+  }
+  if (patch.trojanMode !== undefined && TROJAN_MODES.includes(patch.trojanMode)) {
+    s.trojanMode = patch.trojanMode;
+  }
+  if (patch.chaos !== undefined && Object.prototype.hasOwnProperty.call(CHAOS_LEVELS, patch.chaos)) {
+    s.chaos = patch.chaos;
+  }
+  if (patch.isPublic !== undefined) {
+    s.isPublic = !!patch.isPublic;
+  }
+  broadcast(room);
+}
+
+// ----------------------------------------------------------------------------
+// Matchmaking ("quick match") — finds an open, public, not-yet-started room
+// with fewer than 8 players, optionally preferring one already set to the
+// requested language. Creates a fresh public room if nothing fits.
+// ----------------------------------------------------------------------------
+
+function findQuickMatchRoom(preferredLang) {
+  const candidates = Array.from(rooms.values()).filter(
+    (r) => r.state === "lobby" && r.settings.isPublic && connectedPlayers(r).length < 8
+  );
+  if (candidates.length === 0) return null;
+  const langMatch = candidates.find((r) => r.settings.language === normalizeLang(preferredLang));
+  return langMatch || candidates[0];
+}
+
 // ----------------------------------------------------------------------------
 // WebSocket wiring
 // ----------------------------------------------------------------------------
@@ -624,8 +806,10 @@ wss.on("connection", (ws, req) => {
     if (msg.type === "create_room") {
       const code = roomCode();
       const room = makeRoom(code);
+      if (msg.isPublic) room.settings.isPublic = true;
+      if (msg.language) room.settings.language = normalizeLang(msg.language);
       rooms.set(code, room);
-      joinRoom(room, msg.name);
+      joinRoom(room, msg.name, msg.avatar);
       return;
     }
 
@@ -635,7 +819,20 @@ wss.on("connection", (ws, req) => {
         ws.send(JSON.stringify({ type: "error", code: "room_not_found" }));
         return;
       }
-      joinRoom(room, msg.name);
+      joinRoom(room, msg.name, msg.avatar);
+      return;
+    }
+
+    if (msg.type === "quick_match") {
+      let room = findQuickMatchRoom(msg.language);
+      if (!room) {
+        const code = roomCode();
+        room = makeRoom(code);
+        room.settings.isPublic = true;
+        if (msg.language) room.settings.language = normalizeLang(msg.language);
+        rooms.set(code, room);
+      }
+      joinRoom(room, msg.name, msg.avatar);
       return;
     }
 
@@ -643,6 +840,11 @@ wss.on("connection", (ws, req) => {
     if (!room) return;
 
     switch (msg.type) {
+      case "update_match_settings": {
+        const player = room.players.get(playerId);
+        if (player && player.isHost) updateMatchSettings(room, msg.settings || {});
+        break;
+      }
       case "start_game": {
         const player = room.players.get(playerId);
         if (player && player.isHost) {
@@ -699,7 +901,7 @@ wss.on("connection", (ws, req) => {
     }
   });
 
-  function joinRoom(room, name) {
+  function joinRoom(room, name, avatar) {
     const existing = room.players.get(playerId);
 
     if (existing) {
@@ -711,8 +913,8 @@ wss.on("connection", (ws, req) => {
       // Reconnect: same seat, fresh socket, keep score/goal/progress.
       existing.ws = ws;
       existing.connected = true;
-      if (identity.account && identity.name) existing.name = identity.name;
-      if (identity.avatar) existing.avatar = identity.avatar;
+      if (identity.account && identity.name) existing.name = censorName(identity.name);
+      if (avatar) existing.avatar = avatar;
       currentRoomCode = room.code;
       send(existing, { type: "joined", playerId, code: room.code });
       broadcast(room);
@@ -724,8 +926,8 @@ wss.on("connection", (ws, req) => {
     const player = {
       id: playerId,
       ws,
-      name: identity.account && identity.name ? identity.name : String(name || "Player").slice(0, 18),
-      avatar: identity.avatar || null,
+      name: censorName(identity.account && identity.name ? identity.name : name),
+      avatar: avatar || null,
       account: identity.account,
       connected: true,
       score: 0,
