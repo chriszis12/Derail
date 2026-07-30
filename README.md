@@ -227,15 +227,41 @@ if you need something sturdier for a public deployment.
 
 ## 10. Character avatars
 
-Every player picks a small procedurally-drawn character from the home screen
-(the circular preview button next to your name) — a body color (8 options),
-a hat (6, including a tinfoil hat, because of course), and an outfit (6,
-trench coat / tie / sweater / hoodie / scarf / none). It's genuinely custom
-and rendered as inline SVG (`public/avatar.js`, no image files, no external
-requests), but it's intentionally scoped well below "Among Us item shop"
-depth — no unlockables, no pets, no seasonal items. Adding more options means
-adding more entries to `AVATAR_SKINS` / `AVATAR_HATS` / `AVATAR_ACCESSORIES`
-in `avatar.js` and a matching SVG snippet; the picker UI adapts automatically.
+Characters are built from **real image parts**, not drawn shapes — three
+layers stacked per player: a fixed body, a head that gets tinted to the
+player's chosen color, and an optional hat.
+
+**You need to supply the actual image files.** They go in
+`public/avatar-parts/` with these exact filenames:
+
+| File | What it is |
+|---|---|
+| `body.png` | the suit body — fixed, same for every player |
+| `head.png` | a plain silhouette (solid white or black shape, transparent background) — this is the **only** recolorable part |
+| `hat-cap.png`, `hat-fedora.png`, `hat-beanie.png` | the three hat choices (plus "none") |
+
+Until those files are in place, a player's character just shows as a plain
+colored circle in their chosen color — nothing breaks, it just looks
+minimal, so you can ship and test everything else first and drop the art in
+whenever it's ready.
+
+**Why only the head is recolorable, and how:** the head layer uses CSS
+`mask-image` — the browser uses `head.png`'s alpha channel as a stencil and
+paints the chosen color through it. That only works cleanly if `head.png`
+is a flat silhouette; a shaded/gradient head photo will mask oddly (patchy
+color instead of a clean fill). If your source head image has shading,
+flatten it to one solid color first (most image editors call this
+"threshold" or "select by color → fill").
+
+**On why I didn't just fetch and bundle image links you point me to:** I
+don't download and embed third-party images (product photos, stock hat
+photography, etc.) into a project I'm handing you, since I have no way to
+know their license. That's not a limitation of the code — the layered
+system above works with *any* PNGs you provide, your own art included. Full
+notes on exact sizing/alignment are in `public/avatar-parts/README.txt`, and
+`AVATAR_HAT_TRANSFORMS` near the top of `public/avatar.js` has small nudge
+values (scale/x/y per hat) in case a hat needs a small manual offset once
+you see it rendered against your specific body/head art.
 
 ## 11. Better invite links
 
@@ -275,8 +301,8 @@ the goal pool.
 - Matchmaking is "first open public room," not skill- or region-based.
 - The name censor is a simple substring blocklist — obvious leetspeak/spacing
   tricks will get through (see section 9).
-- Avatars are a genuinely custom but intentionally small system — 8 colors ×
-  6 hats × 6 outfits, no unlockables or seasonal items.
+- Avatars need real image files dropped into `public/avatar-parts/` (see
+  section 10) — the code ships ready for them but doesn't include any art.
 - Scenario/goal *content* is translated for English/Greek/Spanish; adding a
   fourth language means writing a new content pool, not just UI strings.
 - Designed for roughly 2–8 players per room; there's no hard cap enforced.

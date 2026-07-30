@@ -235,14 +235,10 @@
     $("#avatar-big-preview").innerHTML = renderAvatarSVG(avatarConfig, 92);
   }
 
-  function avatarOptionButton(kind, id, currentValue, onPick) {
+  function avatarOptionButton(id, currentValue, onPick) {
     const b = document.createElement("button");
     b.className = "option-btn" + (currentValue === id ? " active" : "");
-    const previewCfg =
-      kind === "hat"
-        ? { skin: avatarConfig.skin, hat: id, accessory: "none" }
-        : { skin: avatarConfig.skin, hat: "none", accessory: id };
-    b.innerHTML = `${renderAvatarSVG(previewCfg, 22)}<span>${t("avatar_item_" + id)}</span>`;
+    b.innerHTML = `${renderAvatarSVG({ skin: avatarConfig.skin, hat: id }, 22)}<span>${t("avatar_item_" + id)}</span>`;
     b.addEventListener("click", () => {
       Sound.click();
       onPick(id);
@@ -273,22 +269,8 @@
     hatWrap.innerHTML = "";
     AVATAR_HATS.forEach((hatId) => {
       hatWrap.appendChild(
-        avatarOptionButton("hat", hatId, avatarConfig.hat, (id) => {
+        avatarOptionButton(hatId, avatarConfig.hat, (id) => {
           avatarConfig.hat = id;
-          saveAvatarConfig();
-          renderAvatarBigPreview();
-          renderAvatarPreview();
-          populateAvatarBuilder();
-        })
-      );
-    });
-
-    const accWrap = $("#avatar-accessory-options");
-    accWrap.innerHTML = "";
-    AVATAR_ACCESSORIES.forEach((accId) => {
-      accWrap.appendChild(
-        avatarOptionButton("accessory", accId, avatarConfig.accessory, (id) => {
-          avatarConfig.accessory = id;
           saveAvatarConfig();
           renderAvatarBigPreview();
           renderAvatarPreview();

@@ -1030,7 +1030,37 @@ input:focus-visible { border-bottom-color: var(--redink); }
   padding: 0;
 }
 .avatar-preview-btn:hover { border-color: var(--redink); }
-.avatar-preview-btn svg { display: block; }
+.avatar-preview-btn .avatar-figure { display: block; }
+
+/* =============================================================================
+   Layered character rendering (public/avatar.js): body + tinted head + hat,
+   stacked as absolutely-positioned layers inside a fixed-size figure box.
+============================================================================= */
+
+.avatar-figure {
+  position: relative;
+  display: inline-block;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.avatar-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+}
+.avatar-head {
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+.avatar-hat { pointer-events: none; }
 
 .join-banner {
   font-family: var(--font-mono);
@@ -1050,7 +1080,7 @@ input:focus-visible { border-bottom-color: var(--redink); }
   justify-content: center;
   padding: 10px 0 4px;
 }
-.avatar-big-preview svg { filter: drop-shadow(0 6px 10px rgba(0,0,0,0.35)); }
+.avatar-big-preview .avatar-figure { filter: drop-shadow(0 6px 10px rgba(0,0,0,0.35)); }
 
 .avatar-picker-block .settings-label {
   font-family: var(--font-mono);
@@ -1084,7 +1114,7 @@ input:focus-visible { border-bottom-color: var(--redink); }
   align-items: center;
   gap: 6px;
 }
-.option-btn svg { display: block; }
+.option-btn .avatar-figure { display: block; }
 .option-btn.active { border-color: var(--redink); background: var(--paper-3); font-weight: 600; }
 
 /* small avatar icon wherever a player is listed */
@@ -1098,7 +1128,7 @@ input:focus-visible { border-bottom-color: var(--redink); }
   flex-shrink: 0;
   overflow: hidden;
 }
-.mini-avatar svg { width: 100%; height: 100%; }
+.mini-avatar .avatar-figure { width: 100%; height: 100%; }
 .roster li .name-with-avatar, .suspect .who, .scoreboard li { display: flex; align-items: center; gap: 8px; }
 
 /* =============================================================================
