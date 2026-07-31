@@ -227,52 +227,79 @@ if you need something sturdier for a public deployment.
 
 ## 10. Character avatars
 
-Characters are built from **real image parts**, not drawn shapes — three
-layers stacked per player: a fixed body, a head that gets tinted to the
-player's chosen color, and an optional hat.
+Kept intentionally simple now: each player is just a colored dot, picked
+from 10 colors on the home screen. No art to source, host, or maintain,
+nothing to break.
 
-**You need to supply the actual image files.** They go in
-`public/avatar-parts/` with these exact filenames:
+## 11. AI-judged voting (optional, needs a Gemini API key)
 
-| File | What it is |
-|---|---|
-| `body.png` | the suit body — fixed, same for every player |
-| `head.png` | a plain silhouette (solid white or black shape, transparent background) — this is the **only** recolorable part |
-| `hat-cap.png`, `hat-fedora.png`, `hat-beanie.png` | the three hat choices (plus "none") |
+Peer voting has an obvious problem: people vote however they want, including
+"bullshit" votes for a friend who obviously didn't hit their goal. As an
+alternative, the host can flip on **AI judge** in the match settings panel —
+instead of a player vote, one Gemini call reads the whole finished story and
+rules on every player's secret goal at once (one call per game, not one per
+player, to keep usage sane across many simultaneous rooms).
 
-Until those files are in place, a player's character just shows as a plain
-colored circle in their chosen color — nothing breaks, it just looks
-minimal, so you can ship and test everything else first and drop the art in
-whenever it's ready.
+**Setup:** get an API key at aistudio.google.com/apikey, then set it as an
+environment variable — `GEMINI_API_KEY` — the same way you set the OAuth
+secrets (Render → your service → Environment). The toggle only appears
+usable once the server has a key; otherwise it's shown disabled with a hint
+explaining why. **Never put the actual key value in a committed file** —
+`ai-judge.js` only ever reads it from `process.env.GEMINI_API_KEY`.
 
-**Why only the head is recolorable, and how:** the head layer uses CSS
-`mask-image` — the browser uses `head.png`'s alpha channel as a stencil and
-paints the chosen color through it. That only works cleanly if `head.png`
-is a flat silhouette; a shaded/gradient head photo will mask oddly (patchy
-color instead of a clean fill). If your source head image has shading,
-flatten it to one solid color first (most image editors call this
-"threshold" or "select by color → fill").
+If AI judging is on but every model call fails (bad/missing key, Google's
+API is down, quota exhausted), the game automatically falls back to the
+original peer-voting flow rather than getting stuck — this feature can never
+hard-break a match, only degrade to what was there before.
 
-**On why I didn't just fetch and bundle image links you point me to:** I
-don't download and embed third-party images (product photos, stock hat
-photography, etc.) into a project I'm handing you, since I have no way to
-know their license. That's not a limitation of the code — the layered
-system above works with *any* PNGs you provide, your own art included. Full
-notes on exact sizing/alignment are in `public/avatar-parts/README.txt`, and
-`AVATAR_HAT_TRANSFORMS` near the top of `public/avatar.js` has small nudge
-values (scale/x/y per hat) in case a hat needs a small manual offset once
-you see it rendered against your specific body/head art.
+`ai-judge.js` tries a short list of Gemini model tiers in order
+(`GEMINI_MODELS` at the top of that file) so one model being rate-limited
+doesn't take the feature down. Google renames/retires models occasionally —
+if this stops working, check ai.google.dev/gemini-api/docs/models and
+update that list.
 
-## 11. Better invite links
+## 12. Ads (Google AdSense)
 
-Opening a `?join=CODE` link now: prefills and cleans up the URL, shows a
-"joining room XXXX" banner, focuses the name field so there's exactly one
-thing left to do, and lets you hit Enter in the name field to jump straight
-into the join (or create a room, if no code is present). The "copy invite
-link" button uses the native share sheet on mobile (`navigator.share`) when
-available, falling back to clipboard-copy everywhere else.
+The AdSense script tag and three ad slots (home screen, lobby, and reveal
+screen — deliberately not during active writing, so an ad never sits next
+to a 15-second timer) are wired in. Two things you still need to do:
 
-## 12. Tuning the game
+1. In your AdSense dashboard, create an ad unit and copy its **slot ID**,
+   then replace `data-ad-slot="0000000000"` in `public/index.html` (three
+   occurrences) with the real value.
+2. `public/ads.txt` already has your publisher ID
+   (`ca-pub-7313911947751437`) in the format AdSense requires — it's served
+   automatically at `yourdomain.com/ads.txt` once deployed, which AdSense
+   checks as part of approving your site.
+
+Ads won't actually render until Google approves the site (usually needs a
+live, populated, publicly-reachable domain — not localhost), and won't show
+for anyone running an ad blocker; both are expected, the slot just quietly
+stays empty.
+
+## 13. Basic abuse protection
+
+Now that this is meant for public traffic: each IP is capped at 20
+create/join/quick-match actions per 5 minutes, and each connection is capped
+at 15 messages/second (silently dropped past that, not an error) to blunt
+naive spam. Both live in `server.js` near the top of the WebSocket section
+and are in-memory only — fine for one server instance; move these counters
+to something shared like Redis if you ever scale to multiple instances.
+
+## 14. Before you actually promote this publicly
+
+- **Privacy policy**: `public/privacy.html` is a starting template covering
+  what the code actually collects (OAuth profile data, gameplay state,
+  AdSense cookies, the Gemini API call if AI judging is on) — fill in the
+  bracketed placeholders and get it reviewed; I'm not a lawyer and this
+  isn't legal advice, just an accurate technical starting point. It's
+  linked from the footer on every screen.
+- **`SESSION_SECRET`**: set this in production (section 4) or every login
+  gets forgotten whenever the server restarts.
+- **Test on the real domain** before going public: OAuth redirect URIs,
+  AdSense approval, and `ads.txt` all depend on the final URL, not localhost.
+
+## 15. Tuning the game
 
 Everything that controls game feel lives at the top of `server.js`:
 
@@ -293,7 +320,7 @@ goes for `SCENARIOS_BY_LANG` and `BANNED_WORD_POOL_BY_LANG` if you add a
 fourth language — the client-side callout picker doesn't need those two, only
 the goal pool.
 
-## 13. Known scope / what's not built
+## 16. Known scope / what's not built
 
 - No persistent leaderboard or match history across sessions — scores reset
   whenever "start a new file" is pressed, and nothing survives a server
@@ -301,8 +328,10 @@ the goal pool.
 - Matchmaking is "first open public room," not skill- or region-based.
 - The name censor is a simple substring blocklist — obvious leetspeak/spacing
   tricks will get through (see section 9).
-- Avatars need real image files dropped into `public/avatar-parts/` (see
-  section 10) — the code ships ready for them but doesn't include any art.
+- Avatars are color-only by design now — no character art at all.
+- AI judging is one call per game, not per player, but still costs real
+  Gemini quota/tokens per finished match — keep an eye on usage if this gets
+  real traffic.
 - Scenario/goal *content* is translated for English/Greek/Spanish; adding a
   fourth language means writing a new content pool, not just UI strings.
 - Designed for roughly 2–8 players per room; there's no hard cap enforced.

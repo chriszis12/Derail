@@ -1030,37 +1030,14 @@ input:focus-visible { border-bottom-color: var(--redink); }
   padding: 0;
 }
 .avatar-preview-btn:hover { border-color: var(--redink); }
-.avatar-preview-btn .avatar-figure { display: block; }
+.avatar-preview-btn .avatar-dot { display: block; }
 
-/* =============================================================================
-   Layered character rendering (public/avatar.js): body + tinted head + hat,
-   stacked as absolutely-positioned layers inside a fixed-size figure box.
-============================================================================= */
-
-.avatar-figure {
-  position: relative;
+.avatar-dot {
   display: inline-block;
   border-radius: 50%;
-  overflow: hidden;
   flex-shrink: 0;
+  box-shadow: inset 0 -3px 6px rgba(0,0,0,0.25), inset 0 2px 3px rgba(255,255,255,0.2);
 }
-.avatar-layer {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center bottom;
-}
-.avatar-head {
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
-  -webkit-mask-size: contain;
-  mask-size: contain;
-}
-.avatar-hat { pointer-events: none; }
 
 .join-banner {
   font-family: var(--font-mono);
@@ -1080,7 +1057,7 @@ input:focus-visible { border-bottom-color: var(--redink); }
   justify-content: center;
   padding: 10px 0 4px;
 }
-.avatar-big-preview .avatar-figure { filter: drop-shadow(0 6px 10px rgba(0,0,0,0.35)); }
+.avatar-big-preview .avatar-dot { filter: drop-shadow(0 6px 10px rgba(0,0,0,0.35)); }
 
 .avatar-picker-block .settings-label {
   font-family: var(--font-mono);
@@ -1101,22 +1078,6 @@ input:focus-visible { border-bottom-color: var(--redink); }
 }
 .swatch-btn.active { border-color: var(--charcoal); box-shadow: 0 0 0 2px var(--paper); }
 
-.option-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.option-btn {
-  border: 1.5px solid rgba(42,35,27,0.25);
-  background: var(--paper-2);
-  border-radius: 2px;
-  padding: 6px 10px;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.option-btn .avatar-figure { display: block; }
-.option-btn.active { border-color: var(--redink); background: var(--paper-3); font-weight: 600; }
-
 /* small avatar icon wherever a player is listed */
 .mini-avatar {
   width: 26px; height: 26px;
@@ -1128,7 +1089,7 @@ input:focus-visible { border-bottom-color: var(--redink); }
   flex-shrink: 0;
   overflow: hidden;
 }
-.mini-avatar .avatar-figure { width: 100%; height: 100%; }
+.mini-avatar .avatar-dot { width: 100%; height: 100%; }
 .roster li .name-with-avatar, .suspect .who, .scoreboard li { display: flex; align-items: center; gap: 8px; }
 
 /* =============================================================================
@@ -1179,3 +1140,76 @@ input:focus-visible { border-bottom-color: var(--redink); }
 ============================================================================= */
 
 .btn-secondary#btn-quick-match { margin-top: 8px; }
+
+/* =============================================================================
+   AI-judge reveal: loading beat + verdict reasoning
+============================================================================= */
+
+.judging-loading {
+  text-align: center;
+  padding: 40px 20px;
+  font-family: var(--font-story);
+  color: var(--fog);
+}
+.judging-stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px; height: 56px;
+  border: 3px solid var(--brass);
+  border-radius: 50%;
+  font-family: var(--font-display);
+  font-size: 26px;
+  color: var(--brass);
+  margin-bottom: 14px;
+  animation: judgingPulse 1.1s ease-in-out infinite;
+}
+@keyframes judgingPulse {
+  0%, 100% { transform: scale(1); opacity: 0.75; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+
+.verdict-reason {
+  flex-basis: 100%;
+  font-family: var(--font-story);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--brass-soft);
+  margin-top: 2px;
+  border-left: 2px solid var(--brass-soft);
+  padding-left: 8px;
+}
+
+.ai-judge-hint {
+  margin-top: -4px;
+  padding-left: 2px;
+}
+
+/* =============================================================================
+   Ad slots — styled to sit quietly in the page (same paper/ink language as
+   everything else) without ever being disguised as game content. The
+   "Advertisement" label always stays visible per ad-network policy.
+============================================================================= */
+
+.ad-slot {
+  margin-top: 26px;
+  padding: 14px;
+  border: 1px dashed rgba(180, 143, 61, 0.3);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.02);
+  min-height: 60px;
+  text-align: center;
+}
+.ad-slot-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fog-dim);
+  margin-bottom: 8px;
+}
+
+.footer-sep { color: var(--fog-dim); margin: 0 6px; }
+.footer-link { color: var(--fog-dim); text-decoration: underline; text-underline-offset: 2px; }
+.footer-link:hover { color: var(--brass); }

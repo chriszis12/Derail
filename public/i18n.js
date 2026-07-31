@@ -119,6 +119,9 @@ const I18N = {
     match_chaos_normal: "normal (2 words)",
     match_chaos_chaos: "chaos (4 words)",
     match_public: "public (matchmaking can find this room)",
+    match_ai_judge: "AI judges the verdict (instead of a player vote)",
+    match_ai_judge_unavailable: "needs a Gemini API key configured on the server to enable",
+    judging_text: "an AI is reading the whole case file and ruling on every goal — one moment…",
     match_settings_summary: "{lang} · {seconds}s per turn · {rounds} rounds — set by the host",
     toasts: {
       need_two_players: "need at least 2 players",
@@ -132,6 +135,7 @@ const I18N = {
       callout_timeout: "callout timed out",
       room_not_found: "room not found",
       already_in_room: "you're already in this room from another tab",
+      rate_limited: "whoa, slow down — too many room actions too fast. try again in a bit.",
     },
   },
 
@@ -260,6 +264,7 @@ const I18N = {
       callout_timeout: "έληξε ο χρόνος της κατηγορίας",
       room_not_found: "δεν βρέθηκε το δωμάτιο",
       already_in_room: "είσαι ήδη σε αυτό το δωμάτιο από άλλη καρτέλα",
+      rate_limited: "ουπς, πιο σιγά — πολλές ενέργειες δωματίου πολύ γρήγορα. δοκίμασε ξανά σε λίγο.",
     },
   },
 
@@ -388,6 +393,7 @@ const I18N = {
       callout_timeout: "se acabó el tiempo del derail",
       room_not_found: "sala no encontrada",
       already_in_room: "ya estás en esta sala desde otra pestaña",
+      rate_limited: "más despacio — demasiadas acciones de sala muy rápido. intenta de nuevo en un momento.",
     },
   },
 };

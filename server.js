@@ -12,6 +12,7 @@ const express = require("express");
 const session = require("express-session");
 const { WebSocketServer } = require("ws");
 const { setupPassport, configuredProviders } = require("./auth");
+const aiJudge = require("./ai-judge");
 
 const PORT = process.env.PORT || 8080;
 const IS_PROD = process.env.NODE_ENV === "production";
@@ -54,6 +55,8 @@ app.use(express.static(path.join(__dirname, "public")));
 // ----------------------------------------------------------------------------
 
 app.get("/auth/providers", (req, res) => res.json({ providers: configuredProviders() }));
+
+app.get("/config", (req, res) => res.json({ aiJudgeAvailable: aiJudge.isConfigured() }));
 
 app.get("/auth/me", (req, res) => {
   res.json({ user: req.user || null });
@@ -119,6 +122,11 @@ const SCENARIOS_BY_LANG = {
     "The new tenant is unpacking boxes in apartment 4B.",
     "A substitute teacher takes attendance for the first time.",
     "The night security guard clocks in for another quiet shift at the museum.",
+    "A tired barista steams milk for the last customer before closing.",
+    "The new hire is introduced to the team over video call, camera off.",
+    "A tow truck driver hooks up a car parked in the wrong spot.",
+    "Grandma pulls a mysterious casserole dish out of the freezer.",
+    "The dentist's waiting room fills up ten minutes before opening.",
   ],
   el: [
     "Ο Ντίνος μπαίνει σε ένα εστιατόριο στις 2:00 τη νύχτα και κάθεται στον πάγκο.",
@@ -131,6 +139,11 @@ const SCENARIOS_BY_LANG = {
     "Ο νέος ένοικος ξεπακετάρει κούτες στο διαμέρισμα 4Β.",
     "Μια αναπληρώτρια καθηγήτρια παίρνει παρουσίες για πρώτη φορά.",
     "Ο νυχτοφύλακας του μουσείου μπαίνει βάρδια για άλλη μια ήσυχη νύχτα.",
+    "Μια κουρασμένη μπαρίστα ζεσταίνει γάλα για τον τελευταίο πελάτη πριν το κλείσιμο.",
+    "Ο νέος υπάλληλος συστήνεται στην ομάδα μέσω βιντεοκλήσης, με κλειστή κάμερα.",
+    "Ένας γερανοφόρος γαντζώνει ένα αυτοκίνητο παρκαρισμένο σε λάθος θέση.",
+    "Η γιαγιά βγάζει ένα μυστηριώδες ταψί από την κατάψυξη.",
+    "Η αίθουσα αναμονής του οδοντιάτρου γεμίζει δέκα λεπτά πριν το άνοιγμα.",
   ],
   es: [
     "Dave entra en una cafetería a las 2:00 AM y se sienta en la barra.",
@@ -143,6 +156,11 @@ const SCENARIOS_BY_LANG = {
     "El nuevo inquilino está desempacando cajas en el apartamento 4B.",
     "Una profesora sustituta pasa lista por primera vez.",
     "El guardia de seguridad nocturno ficha para otro turno tranquilo en el museo.",
+    "Una barista agotada calienta leche para el último cliente antes de cerrar.",
+    "El nuevo empleado se presenta al equipo por videollamada, con la cámara apagada.",
+    "Un camión grúa engancha un coche mal aparcado.",
+    "La abuela saca un misterioso plato del congelador.",
+    "La sala de espera del dentista se llena diez minutos antes de abrir.",
   ],
 };
 
@@ -312,6 +330,7 @@ function makeRoom(code) {
       trojanMode: "auto", // auto | always | never
       chaos: "normal", // off | normal | chaos — how many words get banned per round
       isPublic: false, // visible to "quick match"?
+      aiJudge: aiJudge.isConfigured(), // AI-judged reveal instead of peer voting, when available
     },
     scenario: null,
     story: [], // { text, playerId, name }
@@ -644,9 +663,8 @@ function resolveCallout(room, guessedGoalId) {
 // Reveal & voting
 // ----------------------------------------------------------------------------
 
-function startReveal(room) {
+async function startReveal(room) {
   clearTurnTimer(room);
-  room.state = "voting";
   const subjects = connectedPlayers(room)
     .filter((p) => !p.busted)
     .map((p) => p.id);
@@ -657,6 +675,48 @@ function startReveal(room) {
   }
   room.reveal = { goals, finished: false };
 
+  const useAI = room.settings.aiJudge && aiJudge.isConfigured() && subjects.length > 0;
+
+  if (useAI) {
+    room.state = "judging"; // transient — client shows a short "reviewing the case" beat
+    broadcast(room);
+
+    const players = subjects.map((id) => ({ id, goalText: room.players.get(id).goal.text }));
+    let verdicts = null;
+    try {
+      verdicts = await aiJudge.judgeStory({
+        scenario: room.scenario,
+        story: room.story,
+        players,
+        language: normalizeLang(room.settings.language),
+      });
+    } catch {
+      verdicts = null;
+    }
+
+    // The room could've been torn down (everyone left) or moved on while we
+    // were awaiting the API call — bail out quietly rather than resurrect it.
+    if (!rooms.has(room.code) || room.state !== "judging") return;
+
+    if (verdicts) {
+      const results = {};
+      for (const id of subjects) {
+        const v = verdicts.get(id) || { success: false, reason: "" };
+        results[id] = { success: v.success, reason: v.reason, aiJudged: true };
+        const p = room.players.get(id);
+        if (p && v.success) p.score += 10;
+      }
+      room.reveal.results = results;
+      room.reveal.finished = true;
+      room.state = "reveal";
+      broadcast(room);
+      return;
+    }
+    // Every model failed or returned something unusable — fall through to
+    // ordinary peer voting below instead of leaving the room stuck.
+  }
+
+  room.state = "voting";
   room.voting = {
     subjects,
     ballots: new Map(subjects.map((id) => [id, { yes: 0, no: 0 }])),
@@ -747,6 +807,9 @@ function updateMatchSettings(room, patch) {
   if (patch.isPublic !== undefined) {
     s.isPublic = !!patch.isPublic;
   }
+  if (patch.aiJudge !== undefined) {
+    s.aiJudge = !!patch.aiJudge && aiJudge.isConfigured();
+  }
   broadcast(room);
 }
 
@@ -790,17 +853,77 @@ function identityFromRequest(req) {
   return { identityId: req.session.guestId, name: null, avatar: null, account: false };
 }
 
+// ----------------------------------------------------------------------------
+// Basic abuse protection. Deliberately simple (in-memory, per-process) —
+// good enough to stop casual spam on a single small deployment; if this ever
+// needs to survive multiple server instances behind a load balancer, move
+// these counters to something shared like Redis instead.
+// ----------------------------------------------------------------------------
+
+const ROOM_ACTION_LIMIT = 20; // per window, per IP
+const ROOM_ACTION_WINDOW_MS = 5 * 60 * 1000;
+const roomActionCounts = new Map(); // ip -> { count, resetAt }
+
+function clientIp(req) {
+  const fwd = req.headers["x-forwarded-for"];
+  if (fwd) return fwd.split(",")[0].trim();
+  return req.socket?.remoteAddress || "unknown";
+}
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const entry = roomActionCounts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    roomActionCounts.set(ip, { count: 1, resetAt: now + ROOM_ACTION_WINDOW_MS });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > ROOM_ACTION_LIMIT;
+}
+
+// Cheap flood guard on the message stream itself, independent of the
+// room-action limiter above (that one only covers create/join/quick-match).
+const MESSAGE_FLOOD_LIMIT = 15; // per window, per connection
+const MESSAGE_FLOOD_WINDOW_MS = 1000;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of roomActionCounts.entries()) {
+    if (now > entry.resetAt) roomActionCounts.delete(ip);
+  }
+}, 10 * 60 * 1000).unref();
+
 wss.on("connection", (ws, req) => {
   const identity = identityFromRequest(req);
   const playerId = identity.identityId;
+  const ip = clientIp(req);
   let currentRoomCode = null;
+  let msgWindowStart = Date.now();
+  let msgCountInWindow = 0;
 
   ws.on("message", (raw) => {
+    // Flood guard: silently drop messages once a connection is clearly
+    // spamming, rather than doing any per-message work.
+    const now = Date.now();
+    if (now - msgWindowStart > MESSAGE_FLOOD_WINDOW_MS) {
+      msgWindowStart = now;
+      msgCountInWindow = 0;
+    }
+    msgCountInWindow += 1;
+    if (msgCountInWindow > MESSAGE_FLOOD_LIMIT) return;
+
     let msg;
     try {
       msg = JSON.parse(raw.toString());
     } catch {
       return;
+    }
+
+    if (msg.type === "create_room" || msg.type === "join_room" || msg.type === "quick_match") {
+      if (isRateLimited(ip)) {
+        ws.send(JSON.stringify({ type: "error", code: "rate_limited" }));
+        return;
+      }
     }
 
     if (msg.type === "create_room") {

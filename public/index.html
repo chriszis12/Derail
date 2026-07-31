@@ -5,10 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Derail — a story with a hidden agenda</title>
 <meta name="description" content="A real-time collaborative storytelling game. Everyone writes the same story. Everyone has a different secret ending in mind." />
+
+<meta property="og:title" content="Derail — a story with a hidden agenda" />
+<meta property="og:description" content="A real-time collaborative storytelling game for 2-8 players. Everyone writes the same story — everyone has a different secret ending in mind." />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Derail" />
+<meta name="twitter:description" content="One story. Every player has a different ending in mind." />
+<meta name="theme-color" content="#14120f" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23a5312b'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-size='38' font-weight='bold' fill='%23fbf3e2' text-anchor='middle'%3ED%3C/text%3E%3C/svg%3E" />
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css" />
+
+<!-- AdSense: only actually serves ads once this site is approved and live on
+     a real domain — see README section on ads for the ads.txt + approval steps. -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7313911947751437"
+     crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -112,6 +127,18 @@
       <summary data-i18n="rules_summary"></summary>
       <ol id="rules-list"></ol>
     </details>
+
+    <div class="ad-slot">
+      <span class="ad-slot-label">Advertisement</span>
+      <!-- Create an ad unit in your AdSense dashboard and paste its slot ID
+           into data-ad-slot below (see README, "Ads" section). -->
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-7313911947751437"
+           data-ad-slot="0000000000"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+    </div>
   </div>
 </section>
 
@@ -125,10 +152,6 @@
       <div class="avatar-picker-block">
         <div class="settings-label" data-i18n="avatar_color"></div>
         <div id="avatar-skin-swatches" class="swatch-row"></div>
-      </div>
-      <div class="avatar-picker-block">
-        <div class="settings-label" data-i18n="avatar_hat"></div>
-        <div id="avatar-hat-options" class="option-row"></div>
       </div>
     </div>
     <button id="btn-avatar-done" class="btn btn-primary settings-done" data-i18n="settings_close"></button>
@@ -201,6 +224,12 @@
         <span data-i18n="match_public"></span>
         <button id="toggle-public" class="toggle-switch" role="switch"><span class="knob"></span></button>
       </div>
+
+      <div class="match-setting-row">
+        <span data-i18n="match_ai_judge"></span>
+        <button id="toggle-ai-judge" class="toggle-switch" role="switch"><span class="knob"></span></button>
+      </div>
+      <p id="ai-judge-hint" class="hint ai-judge-hint hidden" data-i18n="match_ai_judge_unavailable"></p>
     </div>
     <p id="match-settings-readonly" class="hint hidden"></p>
 
@@ -209,6 +238,16 @@
       <p class="hint" data-i18n="need_two"></p>
     </div>
     <p id="waiting-note" class="hint hidden" data-i18n="waiting_host"></p>
+
+    <div class="ad-slot">
+      <span class="ad-slot-label">Advertisement</span>
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-7313911947751437"
+           data-ad-slot="0000000000"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+    </div>
   </div>
 </section>
 
@@ -277,6 +316,10 @@
   <div class="voting-wrap">
     <h2 class="section-title" data-i18n="did_they"></h2>
     <p class="hint" data-i18n="verdict_sub"></p>
+    <div id="judging-loading" class="judging-loading hidden">
+      <div class="judging-stamp">?</div>
+      <p data-i18n="judging_text"></p>
+    </div>
     <ul id="voting-list" class="voting-list"></ul>
   </div>
 </section>
@@ -299,11 +342,23 @@
     <div id="reveal-host-controls" class="host-controls hidden">
       <button id="btn-play-again" class="btn btn-primary btn-lg" data-i18n="play_again_btn"></button>
     </div>
+
+    <div class="ad-slot">
+      <span class="ad-slot-label">Advertisement</span>
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-client="ca-pub-7313911947751437"
+           data-ad-slot="0000000000"
+           data-ad-format="auto"
+           data-full-width-responsive="true"></ins>
+    </div>
   </div>
 </section>
 
 <footer class="credit-footer">
   <span id="credit-line" data-i18n="credit_line"></span>
+  <span class="footer-sep">·</span>
+  <a href="/privacy.html" target="_blank" rel="noopener" class="footer-link">privacy</a>
 </footer>
 
 <div id="toast-stack" class="toast-stack"></div>

@@ -146,13 +146,17 @@
   const PROVIDER_LABELS = { google: "login_google", discord: "login_discord", github: "login_github" };
   const PROVIDER_ICONS = { google: "G", discord: "D", github: "GH" };
 
+  let aiJudgeAvailable = false;
+
   async function initAuth() {
     try {
-      const [providersRes, meRes] = await Promise.all([
+      const [providersRes, meRes, configRes] = await Promise.all([
         fetch("/auth/providers").then((r) => r.json()),
         fetch("/auth/me").then((r) => r.json()),
+        fetch("/config").then((r) => r.json()).catch(() => ({ aiJudgeAvailable: false })),
       ]);
       currentUser = meRes.user || null;
+      aiJudgeAvailable = !!configRes.aiJudgeAvailable;
       renderAuthSection(providersRes.providers || []);
     } catch {
       // auth endpoints unreachable (e.g. static preview) — just hide the section
@@ -235,17 +239,6 @@
     $("#avatar-big-preview").innerHTML = renderAvatarSVG(avatarConfig, 92);
   }
 
-  function avatarOptionButton(id, currentValue, onPick) {
-    const b = document.createElement("button");
-    b.className = "option-btn" + (currentValue === id ? " active" : "");
-    b.innerHTML = `${renderAvatarSVG({ skin: avatarConfig.skin, hat: id }, 22)}<span>${t("avatar_item_" + id)}</span>`;
-    b.addEventListener("click", () => {
-      Sound.click();
-      onPick(id);
-    });
-    return b;
-  }
-
   function populateAvatarBuilder() {
     const skinWrap = $("#avatar-skin-swatches");
     skinWrap.innerHTML = "";
@@ -263,20 +256,6 @@
         populateAvatarBuilder();
       });
       skinWrap.appendChild(b);
-    });
-
-    const hatWrap = $("#avatar-hat-options");
-    hatWrap.innerHTML = "";
-    AVATAR_HATS.forEach((hatId) => {
-      hatWrap.appendChild(
-        avatarOptionButton(hatId, avatarConfig.hat, (id) => {
-          avatarConfig.hat = id;
-          saveAvatarConfig();
-          renderAvatarBigPreview();
-          renderAvatarPreview();
-          populateAvatarBuilder();
-        })
-      );
     });
   }
 
@@ -355,10 +334,29 @@
     playing: "screen-game",
     callout: "screen-game",
     voting: "screen-voting",
+    judging: "screen-voting",
     reveal: "screen-reveal",
   };
 
   let currentScreenId = null;
+
+  const adSlotsPushed = new Set();
+
+  function initAdsOnScreen(id) {
+    if (adSlotsPushed.has(id)) return;
+    const container = document.getElementById(id);
+    if (!container) return;
+    const slots = container.querySelectorAll("ins.adsbygoogle");
+    if (slots.length === 0) return;
+    adSlotsPushed.add(id);
+    slots.forEach((ins) => {
+      try {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      } catch {
+        /* adblockers / offline dev / not yet approved by AdSense — fine, just skip */
+      }
+    });
+  }
 
   function showScreen(id) {
     if (id === currentScreenId) return;
@@ -373,6 +371,10 @@
       el.classList.add("screen-enter");
     }
     if (!wasFirstPaint) Sound.whoosh();
+    // Ads only get pushed once a screen is actually visible (and only the
+    // first time) — pushing into a display:none container makes AdSense
+    // measure zero width and throw.
+    initAdsOnScreen(id);
   }
 
   // ---------------------------------------------------------------------
@@ -679,6 +681,13 @@
       Sound.click();
       sendMsg({ type: "update_match_settings", settings: { isPublic: nowOn } });
     });
+    $("#toggle-ai-judge").addEventListener("click", () => {
+      if (!aiJudgeAvailable) return;
+      const nowOn = $("#toggle-ai-judge").getAttribute("aria-pressed") !== "true";
+      setToggle($("#toggle-ai-judge"), nowOn);
+      Sound.click();
+      sendMsg({ type: "update_match_settings", settings: { aiJudge: nowOn } });
+    });
   }
 
   function renderLobby(state) {
@@ -713,6 +722,9 @@
       $("#match-trojan-mode").value = s.trojanMode;
       $("#match-chaos").value = s.chaos;
       setToggle($("#toggle-public"), s.isPublic);
+      setToggle($("#toggle-ai-judge"), s.aiJudge && aiJudgeAvailable);
+      $("#toggle-ai-judge").disabled = !aiJudgeAvailable;
+      $("#ai-judge-hint").classList.toggle("hidden", aiJudgeAvailable);
     } else {
       const langLabel = { en: "English", el: "Ελληνικά", es: "Español" }[s.language] || s.language;
       $("#match-settings-readonly").textContent = t("match_settings_summary", {
@@ -827,6 +839,16 @@
   function renderVoting(state) {
     $("#voting-code").textContent = state.code;
     const list = $("#voting-list");
+    const loading = $("#judging-loading");
+
+    if (state.state === "judging") {
+      list.classList.add("hidden");
+      loading.classList.remove("hidden");
+      return;
+    }
+    loading.classList.add("hidden");
+    list.classList.remove("hidden");
+
     list.innerHTML = "";
     const v = state.voting;
     if (!v) return;
@@ -891,6 +913,7 @@
         ${stamp}
         <span class="pts">${p.score} ${t("pts")}</span>
         ${g ? `<div class="goal-mini">${escapeHtml(g.text)}</div>` : ""}
+        ${r?.aiJudged && r.reason ? `<div class="verdict-reason">${escapeHtml(r.reason)}</div>` : ""}
       `;
       board.appendChild(li);
     });
@@ -936,7 +959,7 @@
 
     if (state.state === "lobby") renderLobby(state);
     else if (state.state === "playing" || state.state === "callout") renderGame(state);
-    else if (state.state === "voting") renderVoting(state);
+    else if (state.state === "voting" || state.state === "judging") renderVoting(state);
     else if (state.state === "reveal") renderReveal(state);
   }
 
@@ -997,4 +1020,6 @@
 
   initSettings();
   initAuth();
+  currentScreenId = "screen-home";
+  initAdsOnScreen("screen-home");
 })();
