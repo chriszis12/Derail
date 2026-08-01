@@ -331,6 +331,7 @@ function makeRoom(code) {
       chaos: "normal", // off | normal | chaos — how many words get banned per round
       isPublic: false, // visible to "quick match"?
       aiJudge: aiJudge.isConfigured(), // AI-judged reveal instead of peer voting, when available
+      customScenario: "", // host-written opening line; blank = pick randomly
     },
     scenario: null,
     story: [], // { text, playerId, name }
@@ -460,7 +461,7 @@ function startGame(room) {
   const GOAL_POOL = GOAL_POOL_BY_LANG[lang];
   const BANNED_WORD_POOL = BANNED_WORD_POOL_BY_LANG[lang];
 
-  room.scenario = SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)];
+  room.scenario = room.settings.customScenario || SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)];
 
   // Assign goals: guarantee one trojan goal max, rest unique non-trojan,
   // according to the host's trojanMode setting.
@@ -809,6 +810,9 @@ function updateMatchSettings(room, patch) {
   }
   if (patch.aiJudge !== undefined) {
     s.aiJudge = !!patch.aiJudge && aiJudge.isConfigured();
+  }
+  if (patch.customScenario !== undefined) {
+    s.customScenario = String(patch.customScenario || "").trim().slice(0, 200);
   }
   broadcast(room);
 }

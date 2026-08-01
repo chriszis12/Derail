@@ -119,6 +119,8 @@ const I18N = {
     match_chaos_normal: "normal (2 words)",
     match_chaos_chaos: "chaos (4 words)",
     match_public: "public (matchmaking can find this room)",
+    match_custom_scenario: "custom opening line (optional)",
+    match_custom_scenario_placeholder: "leave blank for a random scenario",
     match_ai_judge: "AI judges the verdict (instead of a player vote)",
     match_ai_judge_unavailable: "needs a Gemini API key configured on the server to enable",
     judging_text: "an AI is reading the whole case file and ruling on every goal — one moment…",
@@ -251,6 +253,8 @@ const I18N = {
     match_chaos_normal: "κανονικό (2 λέξεις)",
     match_chaos_chaos: "χάος (4 λέξεις)",
     match_public: "δημόσιο (το matchmaking μπορεί να το βρει)",
+    match_custom_scenario: "προσαρμοσμένη αρχική σκηνή (προαιρετικό)",
+    match_custom_scenario_placeholder: "άφησέ το κενό για τυχαία σκηνή",
     match_settings_summary: "{lang} · {seconds}δ ανά σειρά · {rounds} γύροι — ορίστηκε από τον οικοδεσπότη",
     toasts: {
       need_two_players: "χρειάζονται τουλάχιστον 2 παίκτες",
@@ -380,6 +384,8 @@ const I18N = {
     match_chaos_normal: "normal (2 palabras)",
     match_chaos_chaos: "caos (4 palabras)",
     match_public: "pública (el emparejamiento puede encontrar esta sala)",
+    match_custom_scenario: "escena inicial personalizada (opcional)",
+    match_custom_scenario_placeholder: "déjalo en blanco para una escena aleatoria",
     match_settings_summary: "{lang} · {seconds}s por turno · {rounds} rondas — definido por el anfitrión",
     toasts: {
       need_two_players: "se necesitan al menos 2 jugadores",

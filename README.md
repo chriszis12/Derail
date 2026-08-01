@@ -299,7 +299,38 @@ to something shared like Redis if you ever scale to multiple instances.
 - **Test on the real domain** before going public: OAuth redirect URIs,
   AdSense approval, and `ads.txt` all depend on the final URL, not localhost.
 
-## 15. Tuning the game
+## 15. Launch polish (PWA, security headers, and a few engagement touches)
+
+- **Installable (PWA)**: `manifest.json` + real generated icons in
+  `public/icons/` — players can "Add to Home Screen" on phone or desktop for
+  a fullscreen, app-like launch. iOS-specific meta tags handle the
+  fullscreen-without-browser-chrome behavior Apple needs separately from the
+  manifest.
+- **Content-Security-Policy** meta tag restricts scripts/styles/connections
+  to an explicit allowlist (self + the AdSense/Google domains this app
+  actually needs). It includes `'unsafe-inline'` for styles because a lot of
+  the UI sets inline `style=""` (timer bars, colored avatar dots) — removing
+  that would need a nonce-based rewrite, a bigger change than a meta tag.
+  Still meaningfully blocks scripts loading from any domain not listed.
+- **Canonical URL**: `<link rel="canonical">` currently points at a
+  placeholder — **replace it with your real deployed domain** before launch,
+  or it actively confuses search engines instead of helping.
+- **`<noscript>` fallback** tells anyone with JS disabled/blocked why the
+  page looks broken instead of just silently failing.
+- **Streamer mode**: the room code is hidden by default everywhere it's
+  shown (lobby, game, voting, reveal) — click the eye icon next to it to
+  reveal. Protects against stream snipers without you having to think about it.
+- **Turn "typing" indicator**: whoever's turn it is gets a bouncing avatar
+  and animated dots in the suspect rail instead of just a static highlight.
+- **Tension audio**: the timer's tick now starts at 5 seconds left (was 3)
+  and climbs in pitch as it counts down; a Derail callout now shakes the
+  screen briefly when it opens.
+- **Host custom scenario**: the match settings panel has an optional
+  "custom opening line" field — leave it blank for the usual random
+  scenario, or type your own to build in an inside joke for your specific
+  group. Overrides the random pool for that match only.
+
+## 16. Tuning the game
 
 Everything that controls game feel lives at the top of `server.js`:
 
@@ -320,7 +351,7 @@ goes for `SCENARIOS_BY_LANG` and `BANNED_WORD_POOL_BY_LANG` if you add a
 fourth language — the client-side callout picker doesn't need those two, only
 the goal pool.
 
-## 16. Known scope / what's not built
+## 17. Known scope / what's not built
 
 - No persistent leaderboard or match history across sessions — scores reset
   whenever "start a new file" is pressed, and nothing survives a server

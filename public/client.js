@@ -449,6 +449,18 @@
     history.replaceState(null, "", location.pathname);
   }
 
+  // Streamer mode: the room code is masked by default so it doesn't sit
+  // exposed on stream/screen-share for anyone to snipe. One click reveals it.
+  let codeHidden = true;
+  function codeDisplay(actualCode) {
+    return codeHidden ? "••••" : actualCode || "----";
+  }
+  $("#btn-toggle-code").addEventListener("click", () => {
+    codeHidden = !codeHidden;
+    Sound.click();
+    if (latestState) render(latestState);
+  });
+
   $("#btn-copy-link").addEventListener("click", async () => {
     Sound.click();
     const url = `${location.origin}${location.pathname}?join=${myCode}`;
@@ -572,6 +584,7 @@
   };
 
   let lastCalloutResolvedKey = null;
+  let lastCalloutShakeKey = null;
 
   function renderCalloutOverlay(state) {
     const overlay = $("#overlay-callout");
@@ -580,9 +593,18 @@
       overlay.classList.add("hidden");
       $("#stamp-slam").classList.remove("show");
       lastCalloutResolvedKey = null;
+      lastCalloutShakeKey = null;
       return;
     }
     overlay.classList.remove("hidden");
+
+    const shakeKey = `${c.callerId}:${c.targetId}`;
+    if (lastCalloutShakeKey !== shakeKey) {
+      lastCalloutShakeKey = shakeKey;
+      document.body.classList.remove("screen-shake");
+      void document.body.offsetWidth;
+      document.body.classList.add("screen-shake");
+    }
 
     $("#callout-desc").textContent =
       `${c.callerName} ${t("thinks_spotted")} ${c.targetName}${t("apostrophe_agenda")}`;
@@ -688,10 +710,13 @@
       Sound.click();
       sendMsg({ type: "update_match_settings", settings: { aiJudge: nowOn } });
     });
+    $("#match-custom-scenario").addEventListener("change", (e) => {
+      sendMsg({ type: "update_match_settings", settings: { customScenario: e.target.value } });
+    });
   }
 
   function renderLobby(state) {
-    $("#lobby-code").textContent = state.code;
+    $("#lobby-code").textContent = codeDisplay(state.code);
     const list = $("#lobby-players");
     list.innerHTML = "";
     state.players.forEach((p, i) => {
@@ -725,6 +750,9 @@
       setToggle($("#toggle-ai-judge"), s.aiJudge && aiJudgeAvailable);
       $("#toggle-ai-judge").disabled = !aiJudgeAvailable;
       $("#ai-judge-hint").classList.toggle("hidden", aiJudgeAvailable);
+      if (document.activeElement !== $("#match-custom-scenario")) {
+        $("#match-custom-scenario").value = s.customScenario || "";
+      }
     } else {
       const langLabel = { en: "English", el: "Ελληνικά", es: "Español" }[s.language] || s.language;
       $("#match-settings-readonly").textContent = t("match_settings_summary", {
@@ -740,7 +768,7 @@
   // ---------------------------------------------------------------------
 
   function renderGame(state) {
-    $("#game-code").textContent = state.code;
+    $("#game-code").textContent = codeDisplay(state.code);
     $("#round-num").textContent = Math.min(state.round + 1, state.maxRounds);
     $("#round-max").textContent = state.maxRounds;
     $("#scenario-strip").textContent = state.scenario || "";
@@ -783,12 +811,17 @@
       const canCallOut =
         state.state === "playing" && p.id !== myId && p.connected && !p.busted &&
         !(latestState.players.find((x) => x.id === myId)?.busted);
+      const isTyping = p.id === state.currentTurnId && state.state === "playing";
       li.innerHTML = `
         <div class="who-wrap">
           ${miniAvatarHTML(p.avatar, 28)}
           <div class="who">
             <span class="n">${escapeHtml(p.name)}${p.id === myId ? " (you)" : ""}</span>
-            <span class="s">${p.score} ${t("pts")}${p.busted ? " · " + t("busted_tag") : ""}</span>
+            <span class="s">${
+              isTyping
+                ? `<span class="typing-dots"><span></span><span></span><span></span></span>`
+                : `${p.score} ${t("pts")}${p.busted ? " · " + t("busted_tag") : ""}`
+            }</span>
           </div>
         </div>
         ${p.id !== myId ? `<button class="derail-btn" ${canCallOut ? "" : "disabled"}>${t("derail_btn")}</button>` : ""}
@@ -837,7 +870,7 @@
   // ---------------------------------------------------------------------
 
   function renderVoting(state) {
-    $("#voting-code").textContent = state.code;
+    $("#voting-code").textContent = codeDisplay(state.code);
     const list = $("#voting-list");
     const loading = $("#judging-loading");
 
@@ -889,7 +922,7 @@
   let revealSfxPlayed = false;
 
   function renderReveal(state) {
-    $("#reveal-code").textContent = state.code;
+    $("#reveal-code").textContent = codeDisplay(state.code);
     const board = $("#reveal-scoreboard");
     board.innerHTML = "";
     const ranked = state.players.slice().sort((a, b) => b.score - a.score);
@@ -987,13 +1020,13 @@
       const remaining = Math.max(0, endsAt - Date.now());
       const pct = Math.max(0, Math.min(100, (remaining / (durationSeconds * 1000)) * 100));
       el.style.width = pct + "%";
-      el.classList.toggle("timer-critical", remaining < 4000 && remaining > 0);
+      el.classList.toggle("timer-critical", remaining < 5000 && remaining > 0);
       if (playTickSfx) {
         const secLeft = Math.ceil(remaining / 1000);
         const ticked = timerTicked.get(el);
-        if (secLeft <= 3 && secLeft > 0 && !ticked.has(secLeft)) {
+        if (secLeft <= 5 && secLeft > 0 && !ticked.has(secLeft)) {
           ticked.add(secLeft);
-          Sound.tick();
+          Sound.tick(secLeft);
         }
       }
       if (remaining > 0) {

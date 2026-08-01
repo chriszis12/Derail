@@ -15,10 +15,51 @@
 <meta name="theme-color" content="#14120f" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23a5312b'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-size='38' font-weight='bold' fill='%23fbf3e2' text-anchor='middle'%3ED%3C/text%3E%3C/svg%3E" />
 
+<!-- Canonical URL — REPLACE with your real deployed domain before launch,
+     this placeholder does nothing useful and could actively hurt SEO if
+     left as-is (search engines would think every deploy is a duplicate of
+     this literal placeholder URL). -->
+<link rel="canonical" href="https://your-domain-here.com/" />
+
+<!-- PWA: installable on phone/desktop home screens -->
+<link rel="manifest" href="/manifest.json" />
+
+<!-- iOS: launches fullscreen (no browser chrome) when added to the home
+     screen, plus a proper home-screen icon instead of a screenshot thumbnail -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Derail" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+<!-- Content Security Policy: blocks scripts/styles/frames from loading off
+     any domain not explicitly listed here. The AdSense-related domains and
+     'unsafe-inline' for styles are necessary given how this app is built
+     (AdSense injects its own sub-resources at runtime; the UI sets a lot of
+     inline style="" for things like the timer bar and colored avatar dots).
+     A nonce-based rewrite would let style-src drop 'unsafe-inline' for
+     stronger protection, but that's a bigger structural change than a meta
+     tag — see README for the tradeoff. -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://www.googletagservices.com https://www.google.com https://www.gstatic.com;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src 'self' https://fonts.gstatic.com;
+  img-src 'self' data: https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net https://*.gstatic.com;
+  connect-src 'self' ws: wss: https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net;
+  frame-src https://googleads.g.doubleclick.net https://*.google.com;
+  object-src 'none';
+  base-uri 'self';
+" />
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css" />
+
+<!-- Preconnect to AdSense's serving domains so, once approved, ad requests
+     don't cost a fresh DNS+TLS handshake on top of everything else loading -->
+<link rel="preconnect" href="https://pagead2.googlesyndication.com" crossorigin>
+<link rel="preconnect" href="https://googleads.g.doubleclick.net" crossorigin>
 
 <!-- AdSense: only actually serves ads once this site is approved and live on
      a real domain — see README section on ads for the ads.txt + approval steps. -->
@@ -26,6 +67,16 @@
      crossorigin="anonymous"></script>
 </head>
 <body>
+
+<noscript>
+  <div style="max-width:480px;margin:80px auto;padding:28px;text-align:center;font-family:sans-serif;background:#ece2c6;color:#2a231b;border-radius:6px;">
+    <strong>Derail needs JavaScript to run.</strong><br />
+    It's a real-time multiplayer game — please enable JavaScript in your
+    browser (or turn off any script blocker for this site) and reload the
+    page.
+  </div>
+</noscript>
+
 
 <div class="grain"></div>
 
@@ -161,7 +212,11 @@
 <!-- ============================ SCREEN: LOBBY ============================ -->
 <section id="screen-lobby" class="screen">
   <header class="topbar">
-    <div class="topbar-code"><span data-i18n="file_label"></span> <span id="lobby-code">----</span></div>
+    <div class="topbar-code">
+      <span data-i18n="file_label"></span>
+      <span id="lobby-code">----</span>
+      <button id="btn-toggle-code" class="btn-icon-inline" title="show/hide room code" aria-label="show/hide room code">👁</button>
+    </div>
     <button id="btn-copy-link" class="btn-ghost" data-i18n="copy_invite"></button>
   </header>
 
@@ -179,6 +234,11 @@
           <button class="lang-option" data-lang="el">🇬🇷 EL</button>
           <button class="lang-option" data-lang="es">🇪🇸 ES</button>
         </div>
+      </div>
+
+      <div class="match-setting-row match-scenario-row">
+        <span data-i18n="match_custom_scenario"></span>
+        <input id="match-custom-scenario" maxlength="200" data-i18n-placeholder="match_custom_scenario_placeholder" class="mini-input" />
       </div>
 
       <div class="match-setting-row">

@@ -81,9 +81,10 @@ const Sound = (() => {
       tone({ freq: 440, duration: 0.12, type: "sine", gain: 0.15 });
       tone({ freq: 660, duration: 0.16, type: "sine", gain: 0.15, delay: 0.1 });
     },
-    // final seconds of the turn timer
-    tick() {
-      tone({ freq: 900, duration: 0.05, type: "square", gain: 0.08 });
+    // final seconds of the turn timer — pitch climbs as secondsLeft shrinks
+    tick(secondsLeft = 3) {
+      const freq = 700 + (5 - Math.min(secondsLeft, 5)) * 90;
+      tone({ freq, duration: 0.05, type: "square", gain: 0.08 + (5 - Math.min(secondsLeft, 5)) * 0.015 });
     },
     // DERAIL button pressed
     derailSiren() {
