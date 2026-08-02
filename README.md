@@ -286,7 +286,54 @@ naive spam. Both live in `server.js` near the top of the WebSocket section
 and are in-memory only — fine for one server instance; move these counters
 to something shared like Redis if you ever scale to multiple instances.
 
-## 14. Before you actually promote this publicly
+## 16. Fair play and local content
+
+- **Anti-copy-paste**: a player can't just retype their secret goal as their
+  sentence to auto-win it. The server compares the *content words* (stopwords
+  stripped) of what's submitted against the player's own goal text — if most
+  of the goal's distinctive wording shows up verbatim, the sentence is
+  rejected with a "too on-the-nose" message and the turn isn't consumed.
+  Natural paraphrasing that achieves the same goal is always fine; this only
+  catches literally lifting the goal's own words.
+- **Greeklish**: banned-word detection now also catches Greek words typed in
+  Latin letters (e.g. typing "fotia" instead of "φωτιά"), since that's how a
+  lot of Greek speakers actually type casually. It's a rough one-spelling
+  transliteration, not a full greeklish parser, so unusual spellings can
+  still slip through — good enough to catch the common case.
+- **9 more goals per language** (30 total now, up from 21) and the reveal
+  screen now shows a crown on whoever's tied for first, a dedicated "N-way
+  tie" note when multiple players share the top score, and a distinct note
+  for the rare case where nobody scored at all.
+- **Host custom scenario**, beta badge, and social links (Instagram/YouTube/X)
+  were also added this pass — see the lobby's match settings and the footer.
+
+## 17. Local accounts (no OAuth setup required)
+
+Alongside Google/Discord/GitHub, there's now a plain username/password
+option that works immediately with zero configuration — no API keys, no
+developer console setup. Passwords are hashed with Node's built-in
+`crypto.scrypt` (no extra dependency, nothing native to compile) and never
+stored in plain text; accounts live in `data/users.json`, a flat file
+created automatically on first signup (already in `.gitignore` — this is
+runtime data, not something to commit).
+
+This is a genuinely small, single-file-backed system, not a production
+auth service: no password reset flow, no email verification, no rate
+limiting beyond a basic 10-attempts-per-10-minutes-per-IP guard on login.
+Fine for a game night; if this grows real signup volume, swap `local-auth.js`
+for a proper database and add password reset before you'd want to rely on it.
+
+## 18. Leaderboard
+
+Any player signed into an account (local or OAuth) has their wins, games
+played, and total score tracked in `data/stats.json`, viewable from the 🏆
+button next to settings. **Guest players are never tracked** — a guest's
+identity resets whenever their session cookie clears, so recording stats
+for "Player" wouldn't mean anything. "Won" means finishing a game tied for
+the highest score (score > 0) — ties all get counted as a win for everyone
+involved, matching how the reveal screen's crown works.
+
+## 19. Before you actually promote this publicly
 
 - **Privacy policy**: `public/privacy.html` is a starting template covering
   what the code actually collects (OAuth profile data, gameplay state,
@@ -299,7 +346,7 @@ to something shared like Redis if you ever scale to multiple instances.
 - **Test on the real domain** before going public: OAuth redirect URIs,
   AdSense approval, and `ads.txt` all depend on the final URL, not localhost.
 
-## 15. Launch polish (PWA, security headers, and a few engagement touches)
+## 20. Launch polish (PWA, security headers, and a few engagement touches)
 
 - **Installable (PWA)**: `manifest.json` + real generated icons in
   `public/icons/` — players can "Add to Home Screen" on phone or desktop for
@@ -330,7 +377,7 @@ to something shared like Redis if you ever scale to multiple instances.
   scenario, or type your own to build in an inside joke for your specific
   group. Overrides the random pool for that match only.
 
-## 16. Tuning the game
+## 21. Tuning the game
 
 Everything that controls game feel lives at the top of `server.js`:
 
@@ -351,7 +398,7 @@ goes for `SCENARIOS_BY_LANG` and `BANNED_WORD_POOL_BY_LANG` if you add a
 fourth language — the client-side callout picker doesn't need those two, only
 the goal pool.
 
-## 17. Known scope / what's not built
+## 22. Known scope / what's not built
 
 - No persistent leaderboard or match history across sessions — scores reset
   whenever "start a new file" is pressed, and nothing survives a server

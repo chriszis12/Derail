@@ -60,6 +60,39 @@
     if (e.target.id === "overlay-settings") $("#overlay-settings").classList.add("hidden");
   });
 
+  $("#btn-leaderboard").addEventListener("click", async () => {
+    Sound.click();
+    $("#overlay-leaderboard").classList.remove("hidden");
+    const list = $("#leaderboard-list");
+    list.innerHTML = `<p class="hint">${t("leaderboard_loading")}</p>`;
+    try {
+      const data = await fetch("/leaderboard").then((r) => r.json());
+      const entries = data.leaderboard || [];
+      if (entries.length === 0) {
+        list.innerHTML = `<p class="hint">${t("leaderboard_empty")}</p>`;
+        return;
+      }
+      list.innerHTML = "";
+      entries.forEach((e, i) => {
+        const row = document.createElement("div");
+        row.className = "leaderboard-row";
+        row.innerHTML = `
+          <span class="lb-rank">${i + 1}</span>
+          <span class="lb-name">${escapeHtml(e.name)}</span>
+          <span class="lb-wins">${e.wins} ${t("leaderboard_wins")}</span>
+          <span class="lb-games">${e.gamesPlayed} ${t("leaderboard_games")}</span>
+        `;
+        list.appendChild(row);
+      });
+    } catch {
+      list.innerHTML = `<p class="hint">${t("leaderboard_error")}</p>`;
+    }
+  });
+  $("#btn-close-leaderboard").addEventListener("click", () => $("#overlay-leaderboard").classList.add("hidden"));
+  $("#overlay-leaderboard").addEventListener("click", (e) => {
+    if (e.target.id === "overlay-leaderboard") $("#overlay-leaderboard").classList.add("hidden");
+  });
+
   $all(".lang-option").forEach((btn) => {
     btn.addEventListener("click", () => {
       i18nSetLang(btn.dataset.lang);
@@ -164,12 +197,11 @@
     }
   }
 
+  let lastProviders = [];
+
   function renderAuthSection(providers) {
+    lastProviders = providers;
     const section = $("#auth-section");
-    if (providers.length === 0 && !currentUser) {
-      section.classList.add("hidden");
-      return;
-    }
     section.classList.remove("hidden");
 
     const loggedOut = $("#auth-logged-out");
@@ -208,6 +240,39 @@
   $("#btn-logout").addEventListener("click", async () => {
     await fetch("/auth/logout", { method: "POST" });
     location.reload();
+  });
+
+  async function localAuthSubmit(endpoint) {
+    const username = $("#local-username").value.trim();
+    const password = $("#local-password").value;
+    const errEl = $("#local-auth-error");
+    errEl.textContent = "";
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = t(`local_auth_errors.${data.error}`) || t("local_auth_errors.generic");
+        return;
+      }
+      currentUser = data.user;
+      renderAuthSection(lastProviders);
+      showToast(t("local_auth_success"), "success");
+    } catch {
+      errEl.textContent = t("local_auth_errors.generic");
+    }
+  }
+
+  $("#btn-local-login").addEventListener("click", () => {
+    Sound.click();
+    localAuthSubmit("/auth/local/login");
+  });
+  $("#btn-local-register").addEventListener("click", () => {
+    Sound.click();
+    localAuthSubmit("/auth/local/register");
   });
 
   // ---------------------------------------------------------------------
@@ -533,6 +598,14 @@
       { id: "dance", text: "A full choreographed dance number must break out." },
       { id: "twins", text: "A secret identical twin must appear." },
       { id: "portal", text: "A portal to another dimension must open." },
+      { id: "superhero", text: "A character must reveal a secret superpower." },
+      { id: "musical_instrument", text: "Someone must produce a full orchestra's worth of instruments from nowhere." },
+      { id: "royalty", text: "A character must be revealed as secret royalty." },
+      { id: "swap_bodies", text: "Two characters must swap bodies." },
+      { id: "food_fight", text: "A full food fight must break out." },
+      { id: "underground", text: "A hidden underground tunnel or bunker must be discovered." },
+      { id: "talking_animal", text: "An animal must start talking and nobody finds it strange." },
+      { id: "prophecy", text: "An old prophecy must come true." },
       { id: "normal", text: "Keep things completely normal — no twists, no chaos. Just a mundane, uneventful scene." },
     ],
     el: [
@@ -556,6 +629,14 @@
       { id: "dance", text: "Πρέπει να ξεσπάσει ένας ολοκληρωμένος χορευτικός αριθμός." },
       { id: "twins", text: "Πρέπει να εμφανιστεί ένας κρυφός πανομοιότυπος δίδυμος." },
       { id: "portal", text: "Πρέπει να ανοίξει μια πύλη προς άλλη διάσταση." },
+      { id: "superhero", text: "Ένας χαρακτήρας πρέπει να αποκαλύψει μια κρυφή υπερδύναμη." },
+      { id: "musical_instrument", text: "Κάποιος πρέπει να βγάλει από το πουθενά μια ολόκληρη ορχήστρα οργάνων." },
+      { id: "royalty", text: "Ένας χαρακτήρας πρέπει να αποκαλυφθεί ως κρυφή βασιλική οικογένεια." },
+      { id: "swap_bodies", text: "Δύο χαρακτήρες πρέπει να ανταλλάξουν σώματα." },
+      { id: "food_fight", text: "Πρέπει να ξεσπάσει πλήρης μάχη με φαγητό." },
+      { id: "underground", text: "Πρέπει να ανακαλυφθεί ένα κρυφό υπόγειο τούνελ ή καταφύγιο." },
+      { id: "talking_animal", text: "Ένα ζώο πρέπει να αρχίσει να μιλάει και κανείς να μη βρίσκει κάτι περίεργο." },
+      { id: "prophecy", text: "Μια παλιά προφητεία πρέπει να πραγματοποιηθεί." },
       { id: "normal", text: "Κράτα τα πράγματα εντελώς φυσιολογικά — καμία ανατροπή, καμία τρέλα. Απλώς μια ήσυχη, καθημερινή σκηνή." },
     ],
     es: [
@@ -579,6 +660,14 @@
       { id: "dance", text: "Debe estallar un número de baile totalmente coreografiado." },
       { id: "twins", text: "Debe aparecer un gemelo idéntico secreto." },
       { id: "portal", text: "Debe abrirse un portal a otra dimensión." },
+      { id: "superhero", text: "Un personaje debe revelar un superpoder secreto." },
+      { id: "musical_instrument", text: "Alguien debe sacar de la nada toda una orquesta de instrumentos." },
+      { id: "royalty", text: "Un personaje debe resultar ser de la realeza en secreto." },
+      { id: "swap_bodies", text: "Dos personajes deben intercambiar cuerpos." },
+      { id: "food_fight", text: "Debe estallar una guerra de comida en toda regla." },
+      { id: "underground", text: "Debe descubrirse un túnel o búnker secreto bajo tierra." },
+      { id: "talking_animal", text: "Un animal debe empezar a hablar y a nadie le debe parecer extraño." },
+      { id: "prophecy", text: "Una vieja profecía debe cumplirse." },
       { id: "normal", text: "Mantén todo completamente normal — sin giros, sin caos. Solo una escena tranquila y cotidiana." },
     ],
   };
@@ -929,18 +1018,24 @@
     const results = state.reveal?.results || {};
     const goals = state.reveal?.goals || {};
 
+    const topScore = ranked.length ? ranked[0].score : 0;
+    const winners = topScore > 0 ? ranked.filter((p) => p.score === topScore) : [];
+    const isTie = winners.length > 1;
+
     ranked.forEach((p, i) => {
       const li = document.createElement("li");
       li.className = "pop-in";
       li.style.animationDelay = `${i * 0.08}s`;
       const g = goals[p.id];
       const r = results[p.id];
+      const isWinner = winners.some((w) => w.id === p.id);
       let stamp = "";
       if (p.busted) stamp = `<span class="stamp-mini busted">${t("stamp_busted")}</span>`;
       else if (r) stamp = r.success
         ? `<span class="stamp-mini success">${t("pulled_it_off")}</span>`
         : `<span class="stamp-mini fail">${t("didnt_land")}</span>`;
       li.innerHTML = `
+        ${isWinner ? `<span class="crown" title="${isTie ? t("tied_for_first") : t("winner")}">👑</span>` : ""}
         ${miniAvatarHTML(p.avatar, 26)}
         <span class="n">${escapeHtml(p.name)}${p.id === myId ? " (you)" : ""}</span>
         ${stamp}
@@ -950,6 +1045,18 @@
       `;
       board.appendChild(li);
     });
+
+    if (isTie) {
+      const tieNote = document.createElement("p");
+      tieNote.className = "hint tie-note";
+      tieNote.textContent = t("tie_note", { count: winners.length });
+      board.parentElement.insertBefore(tieNote, board.nextSibling);
+    } else if (winners.length === 0) {
+      const noWinNote = document.createElement("p");
+      noWinNote.className = "hint tie-note";
+      noWinNote.textContent = t("no_winner_note");
+      board.parentElement.insertBefore(noWinNote, board.nextSibling);
+    }
 
     if (!revealSfxPlayed) {
       revealSfxPlayed = true;

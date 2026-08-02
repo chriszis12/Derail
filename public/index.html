@@ -82,7 +82,18 @@
 
 <!-- global settings trigger, visible on every screen -->
 <div class="corner-controls">
+  <button id="btn-leaderboard" class="btn-icon" title="leaderboard" aria-label="leaderboard">🏆</button>
   <button id="btn-settings" class="btn-icon" title="settings" aria-label="settings">⚙</button>
+</div>
+
+<!-- ======================= OVERLAY: LEADERBOARD ======================= -->
+<div id="overlay-leaderboard" class="overlay hidden">
+  <div class="callout-card">
+    <div class="callout-head" data-i18n="leaderboard_title"></div>
+    <p class="callout-desc" data-i18n="leaderboard_sub"></p>
+    <div id="leaderboard-list" class="leaderboard-list"></div>
+    <button id="btn-close-leaderboard" class="btn btn-primary settings-done" data-i18n="settings_close"></button>
+  </div>
 </div>
 
 <!-- ======================= OVERLAY: SETTINGS ======================= -->
@@ -135,13 +146,27 @@
   <div class="home-wrap">
     <div class="case-tab">CASE FILE №<span id="rand-case">0417</span></div>
     <h1 class="logo">DERAIL</h1>
+    <span class="beta-badge">BETA</span>
     <p class="tagline" data-i18n="tagline"></p>
 
     <div class="home-card">
-      <div id="auth-section" class="auth-section hidden">
+      <div id="auth-section" class="auth-section">
         <div id="auth-logged-out">
           <p class="auth-prompt" data-i18n="login_prompt"></p>
           <div id="auth-buttons" class="auth-buttons"></div>
+
+          <div class="local-auth-block">
+            <div class="local-auth-fields">
+              <input id="local-username" maxlength="20" data-i18n-placeholder="local_username_placeholder" autocomplete="username" />
+              <input id="local-password" type="password" maxlength="72" data-i18n-placeholder="local_password_placeholder" autocomplete="current-password" />
+            </div>
+            <div class="local-auth-actions">
+              <button id="btn-local-login" class="btn-ghost small" data-i18n="local_login_btn"></button>
+              <button id="btn-local-register" class="btn-ghost small" data-i18n="local_register_btn"></button>
+            </div>
+            <p id="local-auth-error" class="error-line"></p>
+          </div>
+
           <div class="divider"><span data-i18n="play_as_guest"></span></div>
         </div>
         <div id="auth-logged-in" class="auth-logged-in hidden">
@@ -419,6 +444,11 @@
   <span id="credit-line" data-i18n="credit_line"></span>
   <span class="footer-sep">·</span>
   <a href="/privacy.html" target="_blank" rel="noopener" class="footer-link">privacy</a>
+  <span class="footer-social">
+    <a href="https://www.instagram.com/spacelandstudiosgames/" target="_blank" rel="noopener" aria-label="Instagram" title="Instagram">📷</a>
+    <a href="https://www.youtube.com/@SpacelandStudios" target="_blank" rel="noopener" aria-label="YouTube" title="YouTube">▶</a>
+    <a href="https://x.com/SpacelandStudio" target="_blank" rel="noopener" aria-label="X / Twitter" title="X / Twitter">𝕏</a>
+  </span>
 </footer>
 
 <div id="toast-stack" class="toast-stack"></div>

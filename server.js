@@ -12,7 +12,9 @@ const express = require("express");
 const session = require("express-session");
 const { WebSocketServer } = require("ws");
 const { setupPassport, configuredProviders } = require("./auth");
+const localAuth = require("./local-auth");
 const aiJudge = require("./ai-judge");
+const stats = require("./stats");
 
 const PORT = process.env.PORT || 8080;
 const IS_PROD = process.env.NODE_ENV === "production";
@@ -58,12 +60,56 @@ app.get("/auth/providers", (req, res) => res.json({ providers: configuredProvide
 
 app.get("/config", (req, res) => res.json({ aiJudgeAvailable: aiJudge.isConfigured() }));
 
+app.get("/leaderboard", (req, res) => res.json({ leaderboard: stats.getLeaderboard(20) }));
+
 app.get("/auth/me", (req, res) => {
   res.json({ user: req.user || null });
 });
 
 app.post("/auth/logout", (req, res) => {
   req.logout(() => res.json({ ok: true }));
+});
+
+// ----------------------------------------------------------------------------
+// Local username/password accounts — always available, no OAuth app setup
+// required. A light per-IP attempt limiter on top of the existing
+// room-action limiter, since login guessing is a different kind of abuse.
+// ----------------------------------------------------------------------------
+
+const loginAttempts = new Map(); // ip -> { count, resetAt }
+function loginRateLimited(ip) {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + 10 * 60 * 1000 });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > 10;
+}
+
+app.post("/auth/local/register", express.json(), (req, res) => {
+  const ip = clientIp(req);
+  if (loginRateLimited(ip)) return res.status(429).json({ error: "rate_limited" });
+  const { username, password } = req.body || {};
+  const result = localAuth.register(String(username || ""), String(password || ""));
+  if (result.error) return res.status(400).json({ error: result.error });
+  req.login(result.user, (err) => {
+    if (err) return res.status(500).json({ error: "session_error" });
+    res.json({ user: result.user });
+  });
+});
+
+app.post("/auth/local/login", express.json(), (req, res) => {
+  const ip = clientIp(req);
+  if (loginRateLimited(ip)) return res.status(429).json({ error: "rate_limited" });
+  const { username, password } = req.body || {};
+  const result = localAuth.login(String(username || ""), String(password || ""));
+  if (result.error) return res.status(400).json({ error: result.error });
+  req.login(result.user, (err) => {
+    if (err) return res.status(500).json({ error: "session_error" });
+    res.json({ user: result.user });
+  });
 });
 
 if (configuredProviders().includes("google")) {
@@ -187,6 +233,14 @@ const GOAL_POOL_BY_LANG = {
     { id: "dance", text: "A full choreographed dance number must break out.", trojan: false },
     { id: "twins", text: "A secret identical twin must appear.", trojan: false },
     { id: "portal", text: "A portal to another dimension must open.", trojan: false },
+    { id: "superhero", text: "A character must reveal a secret superpower.", trojan: false },
+    { id: "musical_instrument", text: "Someone must produce a full orchestra's worth of instruments from nowhere.", trojan: false },
+    { id: "royalty", text: "A character must be revealed as secret royalty.", trojan: false },
+    { id: "swap_bodies", text: "Two characters must swap bodies.", trojan: false },
+    { id: "food_fight", text: "A full food fight must break out.", trojan: false },
+    { id: "underground", text: "A hidden underground tunnel or bunker must be discovered.", trojan: false },
+    { id: "talking_animal", text: "An animal must start talking and nobody finds it strange.", trojan: false },
+    { id: "prophecy", text: "An old prophecy must come true.", trojan: false },
     { id: "normal", text: "Keep things completely normal — no twists, no chaos. Just a mundane, uneventful scene.", trojan: true },
   ],
   el: [
@@ -210,6 +264,14 @@ const GOAL_POOL_BY_LANG = {
     { id: "dance", text: "Πρέπει να ξεσπάσει ένας ολοκληρωμένος χορευτικός αριθμός.", trojan: false },
     { id: "twins", text: "Πρέπει να εμφανιστεί ένας κρυφός πανομοιότυπος δίδυμος.", trojan: false },
     { id: "portal", text: "Πρέπει να ανοίξει μια πύλη προς άλλη διάσταση.", trojan: false },
+    { id: "superhero", text: "Ένας χαρακτήρας πρέπει να αποκαλύψει μια κρυφή υπερδύναμη.", trojan: false },
+    { id: "musical_instrument", text: "Κάποιος πρέπει να βγάλει από το πουθενά μια ολόκληρη ορχήστρα οργάνων.", trojan: false },
+    { id: "royalty", text: "Ένας χαρακτήρας πρέπει να αποκαλυφθεί ως κρυφή βασιλική οικογένεια.", trojan: false },
+    { id: "swap_bodies", text: "Δύο χαρακτήρες πρέπει να ανταλλάξουν σώματα.", trojan: false },
+    { id: "food_fight", text: "Πρέπει να ξεσπάσει πλήρης μάχη με φαγητό.", trojan: false },
+    { id: "underground", text: "Πρέπει να ανακαλυφθεί ένα κρυφό υπόγειο τούνελ ή καταφύγιο.", trojan: false },
+    { id: "talking_animal", text: "Ένα ζώο πρέπει να αρχίσει να μιλάει και κανείς να μη βρίσκει κάτι περίεργο.", trojan: false },
+    { id: "prophecy", text: "Μια παλιά προφητεία πρέπει να πραγματοποιηθεί.", trojan: false },
     { id: "normal", text: "Κράτα τα πράγματα εντελώς φυσιολογικά — καμία ανατροπή, καμία τρέλα. Απλώς μια ήσυχη, καθημερινή σκηνή.", trojan: true },
   ],
   es: [
@@ -233,6 +295,14 @@ const GOAL_POOL_BY_LANG = {
     { id: "dance", text: "Debe estallar un número de baile totalmente coreografiado.", trojan: false },
     { id: "twins", text: "Debe aparecer un gemelo idéntico secreto.", trojan: false },
     { id: "portal", text: "Debe abrirse un portal a otra dimensión.", trojan: false },
+    { id: "superhero", text: "Un personaje debe revelar un superpoder secreto.", trojan: false },
+    { id: "musical_instrument", text: "Alguien debe sacar de la nada toda una orquesta de instrumentos.", trojan: false },
+    { id: "royalty", text: "Un personaje debe resultar ser de la realeza en secreto.", trojan: false },
+    { id: "swap_bodies", text: "Dos personajes deben intercambiar cuerpos.", trojan: false },
+    { id: "food_fight", text: "Debe estallar una guerra de comida en toda regla.", trojan: false },
+    { id: "underground", text: "Debe descubrirse un túnel o búnker secreto bajo tierra.", trojan: false },
+    { id: "talking_animal", text: "Un animal debe empezar a hablar y a nadie le debe parecer extraño.", trojan: false },
+    { id: "prophecy", text: "Una vieja profecía debe cumplirse.", trojan: false },
     { id: "normal", text: "Mantén todo completamente normal — sin giros, sin caos. Solo una escena tranquila y cotidiana.", trojan: true },
   ],
 };
@@ -558,9 +628,80 @@ function clearTurnTimer(room) {
   }
 }
 
-function containsBannedWord(text, bannedWords) {
+// Rough Greek→Latin transliteration so banned-word checks still catch
+// "greeklish" (Greek typed with Latin letters, extremely common in casual
+// Greek chat). Not a full greeklish parser — just generates one plausible
+// spelling per banned word and checks for it as a substring too.
+const GREEK_TO_LATIN = {
+  "α": "a", "ά": "a", "β": "v", "γ": "g", "δ": "d", "ε": "e", "έ": "e", "ζ": "z",
+  "η": "i", "ή": "i", "θ": "th", "ι": "i", "ί": "i", "ϊ": "i", "κ": "k", "λ": "l",
+  "μ": "m", "ν": "n", "ξ": "x", "ο": "o", "ό": "o", "π": "p", "ρ": "r", "σ": "s",
+  "ς": "s", "τ": "t", "υ": "y", "ύ": "y", "φ": "f", "χ": "ch", "ψ": "ps", "ω": "o", "ώ": "o",
+};
+function greekToGreeklish(word) {
+  return word.toLowerCase().split("").map((c) => GREEK_TO_LATIN[c] || c).join("");
+}
+
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function containsBannedWord(text, bannedWords, lang) {
   const lower = text.toLowerCase();
-  return bannedWords.find((w) => new RegExp(`\\b${w}\\b`, "i").test(lower));
+  for (const w of bannedWords) {
+    if (new RegExp(`\\b${escapeRegExp(w)}\\b`, "i").test(lower)) return w;
+    if (lang === "el") {
+      const translit = greekToGreeklish(w);
+      if (translit.length > 2 && new RegExp(`\\b${escapeRegExp(translit)}\\b`, "i").test(lower)) return w;
+    }
+  }
+  return null;
+}
+
+// ----------------------------------------------------------------------------
+// Anti-copy-paste: block a player from just retyping their own secret goal
+// verbatim (or near-verbatim) as their sentence. Compares the *content*
+// words only (stopwords stripped) so natural paraphrasing is always fine —
+// this only catches someone lifting most of the goal's distinctive wording.
+// ----------------------------------------------------------------------------
+
+const STOPWORDS = {
+  en: new Set(["the","a","an","and","or","but","of","to","in","on","at","is","are","was","were","be","been","it","its","his","her","their","they","he","she","with","for","as","that","this","then","must","someone","who","must","without"]),
+  el: new Set(["ο","η","το","οι","τα","και","να","του","της","των","με","σε","από","για","είναι","θα","που","κάποιος","πρέπει","ένας","μια","ένα","τον","την"]),
+  es: new Set(["el","la","los","las","un","una","y","o","de","en","que","es","son","debe","con","por","para","alguien","su","sus","este","esta"]),
+};
+
+function significantWords(text, lang) {
+  const stop = STOPWORDS[lang] || STOPWORDS.en;
+  return text
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !stop.has(w));
+}
+
+function isTooCloseToGoal(sentence, goalText, lang) {
+  const goalWords = significantWords(goalText, lang);
+  if (goalWords.length < 2) return false;
+  const sentWords = new Set(significantWords(sentence, lang));
+  const matched = goalWords.filter((w) => sentWords.has(w));
+  return matched.length >= 2 && matched.length / goalWords.length >= 0.7;
+}
+
+function recordAccountStats(room) {
+  const players = Array.from(room.players.values());
+  const topScore = players.length ? Math.max(...players.map((p) => p.score)) : 0;
+  stats.recordGame(
+    players
+      .filter((p) => p.account)
+      .map((p) => ({
+        identityId: p.id,
+        name: p.name,
+        score: p.score,
+        won: topScore > 0 && p.score === topScore,
+      }))
+  );
 }
 
 function submitSentence(room, playerId, text) {
@@ -573,9 +714,16 @@ function submitSentence(room, playerId, text) {
   const clean = String(text || "").trim().slice(0, 220);
   if (!clean) return;
 
-  const hit = containsBannedWord(clean, room.bannedWords);
+  const lang = normalizeLang(room.settings.language);
+
+  const hit = containsBannedWord(clean, room.bannedWords, lang);
   if (hit) {
     toast(room, playerId, "banned_word", "error", { word: hit });
+    return;
+  }
+
+  if (player.goal && isTooCloseToGoal(clean, player.goal.text, lang)) {
+    toast(room, playerId, "too_obvious", "error");
     return;
   }
 
@@ -710,6 +858,7 @@ async function startReveal(room) {
       room.reveal.results = results;
       room.reveal.finished = true;
       room.state = "reveal";
+      recordAccountStats(room);
       broadcast(room);
       return;
     }
@@ -774,6 +923,7 @@ function finishVoting(room) {
   room.reveal.finished = true;
   room.voting = null;
   room.state = "reveal";
+  recordAccountStats(room);
   broadcast(room);
 }
 
