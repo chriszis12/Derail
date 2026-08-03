@@ -15,6 +15,7 @@ const { setupPassport, configuredProviders } = require("./auth");
 const localAuth = require("./local-auth");
 const aiJudge = require("./ai-judge");
 const stats = require("./stats");
+const purchases = require("./purchases");
 
 const PORT = process.env.PORT || 8080;
 const IS_PROD = process.env.NODE_ENV === "production";
@@ -61,6 +62,63 @@ app.get("/auth/providers", (req, res) => res.json({ providers: configuredProvide
 app.get("/config", (req, res) => res.json({ aiJudgeAvailable: aiJudge.isConfigured() }));
 
 app.get("/leaderboard", (req, res) => res.json({ leaderboard: stats.getLeaderboard(20) }));
+
+app.get("/entitlements/me", (req, res) => {
+  const identity = identityFromRequest(req);
+  res.json({ owned: purchases.getEntitlements(identity.identityId) });
+});
+
+// ----------------------------------------------------------------------------
+// Stripe webhook — grants a cosmetic entitlement the moment a payment
+// completes. Needs STRIPE_SECRET_KEY (only used to verify the webhook
+// signature here) and STRIPE_WEBHOOK_SECRET set as env vars, and a webhook
+// endpoint configured in the Stripe dashboard pointing at
+// https://yourdomain.com/webhooks/stripe listening for
+// "checkout.session.completed". See README for the full walkthrough,
+// including how client_reference_id carries the buyer's identityId.
+// Uses express.raw (not express.json) because Stripe's signature check
+// needs the exact, untouched request body bytes.
+// ----------------------------------------------------------------------------
+
+app.post("/webhooks/stripe", express.raw({ type: "application/json" }), (req, res) => {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.warn("[derail] Stripe webhook hit but STRIPE_WEBHOOK_SECRET isn't set — ignoring.");
+    return res.status(503).send("not configured");
+  }
+
+  let event;
+  try {
+    // Verifying the signature ourselves (HMAC-SHA256, Stripe's documented
+    // scheme) avoids requiring the full `stripe` npm package just for this
+    // one check.
+    const sig = req.headers["stripe-signature"] || "";
+    const parts = Object.fromEntries(sig.split(",").map((p) => p.split("=")));
+    const signedPayload = `${parts.t}.${req.body}`;
+    const expected = crypto.createHmac("sha256", webhookSecret).update(signedPayload).digest("hex");
+    if (!parts.v1 || !crypto.timingSafeEqual(Buffer.from(parts.v1), Buffer.from(expected))) {
+      throw new Error("signature mismatch");
+    }
+    event = JSON.parse(req.body);
+  } catch (err) {
+    console.error("[derail] Stripe webhook signature check failed:", err.message);
+    return res.status(400).send("invalid signature");
+  }
+
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
+    const identityId = session.client_reference_id;
+    const sku = session.metadata?.sku;
+    if (identityId && sku) {
+      purchases.grant(identityId, sku);
+      console.log(`[derail] granted cosmetic "${sku}" to ${identityId}`);
+    } else {
+      console.warn("[derail] Stripe session completed but missing client_reference_id or metadata.sku — nothing granted.");
+    }
+  }
+
+  res.json({ received: true });
+});
 
 app.get("/auth/me", (req, res) => {
   res.json({ user: req.user || null });
@@ -173,6 +231,12 @@ const SCENARIOS_BY_LANG = {
     "A tow truck driver hooks up a car parked in the wrong spot.",
     "Grandma pulls a mysterious casserole dish out of the freezer.",
     "The dentist's waiting room fills up ten minutes before opening.",
+    "A delivery driver double-checks the address before ringing the doorbell.",
+    "The office printer jams for the third time this week.",
+    "Two strangers reach for the last umbrella at the same time.",
+    "A librarian shushes the reading room out of pure habit.",
+    "The last customer of the day walks into the hardware store at 8:58 PM.",
+    "A family reunion photo is about to be taken, and someone is still missing.",
   ],
   el: [
     "Ο Ντίνος μπαίνει σε ένα εστιατόριο στις 2:00 τη νύχτα και κάθεται στον πάγκο.",
@@ -190,6 +254,12 @@ const SCENARIOS_BY_LANG = {
     "Ένας γερανοφόρος γαντζώνει ένα αυτοκίνητο παρκαρισμένο σε λάθος θέση.",
     "Η γιαγιά βγάζει ένα μυστηριώδες ταψί από την κατάψυξη.",
     "Η αίθουσα αναμονής του οδοντιάτρου γεμίζει δέκα λεπτά πριν το άνοιγμα.",
+    "Ένας διανομέας ελέγχει ξανά τη διεύθυνση πριν χτυπήσει το κουδούνι.",
+    "Ο εκτυπωτής του γραφείου κολλάει για τρίτη φορά αυτή την εβδομάδα.",
+    "Δύο άγνωστοι απλώνουν το χέρι για την τελευταία ομπρέλα ταυτόχρονα.",
+    "Μια βιβλιοθηκάριος κάνει «σουτ» στην αίθουσα ανάγνωσης από απλή συνήθεια.",
+    "Ο τελευταίος πελάτης της ημέρας μπαίνει στο κατάστημα σιδηρικών στις 8:58 το βράδυ.",
+    "Μια οικογενειακή φωτογραφία πρόκειται να τραβηχτεί, και κάποιος λείπει ακόμα.",
   ],
   es: [
     "Dave entra en una cafetería a las 2:00 AM y se sienta en la barra.",
@@ -207,6 +277,12 @@ const SCENARIOS_BY_LANG = {
     "Un camión grúa engancha un coche mal aparcado.",
     "La abuela saca un misterioso plato del congelador.",
     "La sala de espera del dentista se llena diez minutos antes de abrir.",
+    "Un repartidor comprueba dos veces la dirección antes de tocar el timbre.",
+    "La impresora de la oficina se atasca por tercera vez esta semana.",
+    "Dos desconocidos alcanzan el último paraguas al mismo tiempo.",
+    "Una bibliotecaria manda callar a la sala de lectura por pura costumbre.",
+    "El último cliente del día entra a la ferretería a las 8:58 de la noche.",
+    "Están a punto de tomar la foto de la reunión familiar y todavía falta alguien.",
   ],
 };
 
@@ -241,6 +317,12 @@ const GOAL_POOL_BY_LANG = {
     { id: "underground", text: "A hidden underground tunnel or bunker must be discovered.", trojan: false },
     { id: "talking_animal", text: "An animal must start talking and nobody finds it strange.", trojan: false },
     { id: "prophecy", text: "An old prophecy must come true.", trojan: false },
+    { id: "shrink", text: "Someone must be shrunk to miniature size.", trojan: false },
+    { id: "evil_twin", text: "A character's evil twin must show up.", trojan: false },
+    { id: "time_travel", text: "A character must accidentally reveal they're from the future or past.", trojan: false },
+    { id: "invisible", text: "A character must turn invisible in front of everyone.", trojan: false },
+    { id: "curse", text: "An old curse or hex must activate.", trojan: false },
+    { id: "secret_agent", text: "A character must be exposed as an undercover secret agent.", trojan: false },
     { id: "normal", text: "Keep things completely normal — no twists, no chaos. Just a mundane, uneventful scene.", trojan: true },
   ],
   el: [
@@ -272,6 +354,12 @@ const GOAL_POOL_BY_LANG = {
     { id: "underground", text: "Πρέπει να ανακαλυφθεί ένα κρυφό υπόγειο τούνελ ή καταφύγιο.", trojan: false },
     { id: "talking_animal", text: "Ένα ζώο πρέπει να αρχίσει να μιλάει και κανείς να μη βρίσκει κάτι περίεργο.", trojan: false },
     { id: "prophecy", text: "Μια παλιά προφητεία πρέπει να πραγματοποιηθεί.", trojan: false },
+    { id: "shrink", text: "Κάποιος πρέπει να μικρύνει σε μινιατούρα.", trojan: false },
+    { id: "evil_twin", text: "Πρέπει να εμφανιστεί ο κακός δίδυμος ενός χαρακτήρα.", trojan: false },
+    { id: "time_travel", text: "Ένας χαρακτήρας πρέπει κατά λάθος να αποκαλύψει ότι είναι από το μέλλον ή το παρελθόν.", trojan: false },
+    { id: "invisible", text: "Ένας χαρακτήρας πρέπει να γίνει αόρατος μπροστά σε όλους.", trojan: false },
+    { id: "curse", text: "Μια παλιά κατάρα πρέπει να ενεργοποιηθεί.", trojan: false },
+    { id: "secret_agent", text: "Ένας χαρακτήρας πρέπει να αποκαλυφθεί ως μυστικός πράκτορας.", trojan: false },
     { id: "normal", text: "Κράτα τα πράγματα εντελώς φυσιολογικά — καμία ανατροπή, καμία τρέλα. Απλώς μια ήσυχη, καθημερινή σκηνή.", trojan: true },
   ],
   es: [
@@ -303,6 +391,12 @@ const GOAL_POOL_BY_LANG = {
     { id: "underground", text: "Debe descubrirse un túnel o búnker secreto bajo tierra.", trojan: false },
     { id: "talking_animal", text: "Un animal debe empezar a hablar y a nadie le debe parecer extraño.", trojan: false },
     { id: "prophecy", text: "Una vieja profecía debe cumplirse.", trojan: false },
+    { id: "shrink", text: "Alguien debe encogerse hasta un tamaño miniatura.", trojan: false },
+    { id: "evil_twin", text: "Debe aparecer el gemelo malvado de un personaje.", trojan: false },
+    { id: "time_travel", text: "Un personaje debe revelar por accidente que viene del futuro o del pasado.", trojan: false },
+    { id: "invisible", text: "Un personaje debe volverse invisible delante de todos.", trojan: false },
+    { id: "curse", text: "Una vieja maldición debe activarse.", trojan: false },
+    { id: "secret_agent", text: "Un personaje debe ser expuesto como agente secreto encubierto.", trojan: false },
     { id: "normal", text: "Mantén todo completamente normal — sin giros, sin caos. Solo una escena tranquila y cotidiana.", trojan: true },
   ],
 };
@@ -689,6 +783,22 @@ function isTooCloseToGoal(sentence, goalText, lang) {
   return matched.length >= 2 && matched.length / goalWords.length >= 0.7;
 }
 
+function computeSuperlatives(room) {
+  const players = Array.from(room.players.values());
+  const awards = [];
+
+  const bySharpEye = players.filter((p) => p.callsCorrect > 0).sort((a, b) => b.callsCorrect - a.callsCorrect);
+  if (bySharpEye.length) awards.push({ key: "award_sharp_eye", playerId: bySharpEye[0].id });
+
+  const byWildGuess = players.filter((p) => p.callsWrong > 0).sort((a, b) => b.callsWrong - a.callsWrong);
+  if (byWildGuess.length) awards.push({ key: "award_wild_guess", playerId: byWildGuess[0].id });
+
+  const bySuspected = players.filter((p) => p.timesAccused > 0).sort((a, b) => b.timesAccused - a.timesAccused);
+  if (bySuspected.length) awards.push({ key: "award_most_suspected", playerId: bySuspected[0].id });
+
+  return awards;
+}
+
 function recordAccountStats(room) {
   const players = Array.from(room.players.values());
   const topScore = players.length ? Math.max(...players.map((p) => p.score)) : 0;
@@ -768,13 +878,18 @@ function resolveCallout(room, guessedGoalId) {
     correct = target.goal && target.goal.id === guessedGoalId;
   }
 
+  if (caller) caller.callsMade = (caller.callsMade || 0) + (guessedGoalId ? 1 : 0);
+  if (target) target.timesAccused = (target.timesAccused || 0) + 1;
+
   if (correct) {
     target.busted = true;
     caller.score += 15;
+    caller.callsCorrect = (caller.callsCorrect || 0) + 1;
     toast(room, callerId, "callout_correct_points", "success");
     toast(room, targetId, "busted_by", "error", { name: caller.name });
   } else if (guessedGoalId) {
     room.skipNextTurn.add(callerId);
+    caller.callsWrong = (caller.callsWrong || 0) + 1;
     toast(room, callerId, "callout_wrong_lose_turn", "warn");
     if (target) toast(room, targetId, "accused_wrong", "info", { name: caller?.name || "?" });
   } else {
@@ -858,6 +973,7 @@ async function startReveal(room) {
       room.reveal.results = results;
       room.reveal.finished = true;
       room.state = "reveal";
+      room.reveal.superlatives = computeSuperlatives(room);
       recordAccountStats(room);
       broadcast(room);
       return;
@@ -923,6 +1039,7 @@ function finishVoting(room) {
   room.reveal.finished = true;
   room.voting = null;
   room.state = "reveal";
+  room.reveal.superlatives = computeSuperlatives(room);
   recordAccountStats(room);
   broadcast(room);
 }

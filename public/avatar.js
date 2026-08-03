@@ -18,12 +18,23 @@ const AVATAR_SKINS = [
   { id: "rose", color: "#c46a86" },
 ];
 
+// Cosmetic-only, no gameplay effect whatsoever — see README for how these
+// tie into Stripe. `sku` must match the metadata.sku set on the Stripe
+// Checkout session / Payment Link that unlocks it.
+const AVATAR_SKINS_PREMIUM = [
+  { id: "gold-foil", color: "#d4af37", sku: "cosmetic_gold_foil" },
+  { id: "chrome", color: "#b8c4cc", sku: "cosmetic_chrome" },
+  { id: "emerald", color: "#2f8f5b", sku: "cosmetic_emerald" },
+  { id: "violet-neon", color: "#9b4fe0", sku: "cosmetic_violet_neon" },
+];
+
 function avatarDefault() {
   return { skin: AVATAR_SKINS[Math.floor(Math.random() * AVATAR_SKINS.length)].id };
 }
 
 function avatarSkinColor(skinId) {
-  return (AVATAR_SKINS.find((s) => s.id === skinId) || AVATAR_SKINS[0]).color;
+  const found = [...AVATAR_SKINS, ...AVATAR_SKINS_PREMIUM].find((s) => s.id === skinId);
+  return (found || AVATAR_SKINS[0]).color;
 }
 
 // Returns an HTML string for a small colored dot avatar. Kept as a function

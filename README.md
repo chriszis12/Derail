@@ -258,24 +258,11 @@ doesn't take the feature down. Google renames/retires models occasionally —
 if this stops working, check ai.google.dev/gemini-api/docs/models and
 update that list.
 
-## 12. Ads (Google AdSense)
+## 12. Ads — removed
 
-The AdSense script tag and three ad slots (home screen, lobby, and reveal
-screen — deliberately not during active writing, so an ad never sits next
-to a 15-second timer) are wired in. Two things you still need to do:
-
-1. In your AdSense dashboard, create an ad unit and copy its **slot ID**,
-   then replace `data-ad-slot="0000000000"` in `public/index.html` (three
-   occurrences) with the real value.
-2. `public/ads.txt` already has your publisher ID
-   (`ca-pub-7313911947751437`) in the format AdSense requires — it's served
-   automatically at `yourdomain.com/ads.txt` once deployed, which AdSense
-   checks as part of approving your site.
-
-Ads won't actually render until Google approves the site (usually needs a
-live, populated, publicly-reachable domain — not localhost), and won't show
-for anyone running an ad blocker; both are expected, the slot just quietly
-stays empty.
+This app doesn't run ads anymore (they were here for one round, then taken
+back out on request). If you want them back later, ask — it's a small,
+self-contained addition to re-add.
 
 ## 13. Basic abuse protection
 
@@ -335,16 +322,14 @@ involved, matching how the reveal screen's crown works.
 
 ## 19. Before you actually promote this publicly
 
-- **Privacy policy**: `public/privacy.html` is a starting template covering
-  what the code actually collects (OAuth profile data, gameplay state,
-  AdSense cookies, the Gemini API call if AI judging is on) — fill in the
-  bracketed placeholders and get it reviewed; I'm not a lawyer and this
-  isn't legal advice, just an accurate technical starting point. It's
-  linked from the footer on every screen.
+- **Privacy policy**: `public/privacy.html` covers what the code actually
+  collects (OAuth/local account data, gameplay state, the Gemini API call if
+  AI judging is on) — reachable from the 🔒 icon in the top menu on every
+  screen. Update it if what the app collects changes.
 - **`SESSION_SECRET`**: set this in production (section 4) or every login
   gets forgotten whenever the server restarts.
-- **Test on the real domain** before going public: OAuth redirect URIs,
-  AdSense approval, and `ads.txt` all depend on the final URL, not localhost.
+- **Test on the real domain** before going public: OAuth redirect URIs
+  depend on the final URL, not localhost.
 
 ## 20. Launch polish (PWA, security headers, and a few engagement touches)
 
@@ -377,7 +362,91 @@ involved, matching how the reveal screen's crown works.
   scenario, or type your own to build in an inside joke for your specific
   group. Overrides the random pool for that match only.
 
-## 21. Tuning the game
+## 21. Decluttering pass (menus, accounts, ads)
+
+- Account access, the leaderboard, settings, privacy, and the three social
+  links all moved into one icon cluster in the top-right corner, reachable
+  from every screen — no more digging through the home screen card for any
+  of it.
+- **Ads are fully removed** — the AdSense script, all three ad slots,
+  `ads.txt`, and the AdSense-specific CSP entries are all gone. If you want
+  them back later, ask and I'll re-add the same setup from before.
+- The footer is just the credit line now.
+
+## 22. Post-game superlatives
+
+The reveal screen now hands out a few goofy awards computed from what
+actually happened in the match: **Sharpest Eye** (most correct Derail
+callouts), **Wild Guesser** (most wrong callouts), **Most Suspected** (got
+called out the most, right or wrong). They only appear when there's data to
+back them up — a game with zero callouts shows zero awards, nothing forced.
+
+## 23. Cosmetic microtransactions (scaffolded, not wired to real money yet)
+
+You asked what to actually sell — here's the concrete answer, plus a real
+(if minimal) system to support it.
+
+**What to sell:** given avatars are just a colored dot by design now, the
+cleanest cosmetic-only thing to sell is **more colors** — that's what's
+built. Four premium swatches (`gold-foil`, `chrome`, `emerald`,
+`violet-neon`) ship locked by default; a small 🔒 shows instead of the
+color until it's unlocked. Beyond colors, if this takes off, the same
+system extends cleanly to: a small badge/title next to your name in the
+lobby and on the leaderboard ("Supporter", seasonal ones later), or a
+one-time "founder" badge for early players — I'd avoid selling anything
+that changes gameplay (extra time, better odds at anything, more
+guesses) even cosmetically-framed, since that's the fastest way to sour
+goodwill in a game that's supposed to be about reading people, not paying
+your way past them.
+
+**How the money part actually works:** this app never touches card data —
+that's Stripe's job entirely, via **Payment Links** (no code required on
+Stripe's side, made entirely in their dashboard). What *is* built:
+
+1. `purchases.js` — tracks which account owns which cosmetic SKU, in
+   `data/purchases.json` (same flat-file pattern as accounts/stats).
+2. `POST /webhooks/stripe` in `server.js` — verifies Stripe's signature
+   itself (no `stripe` npm package needed, just the built-in `crypto`
+   module) and grants the SKU the moment a payment completes. Tested end to
+   end with a real simulated signed webhook while building this.
+3. `GET /entitlements/me` — the client checks this to know which premium
+   colors to unlock for the signed-in account.
+
+**To actually turn this on**, once you're ready:
+
+1. Make a Stripe account, flip it out of test mode when you're ready to
+   charge real money.
+2. For each color (`cosmetic_gold_foil`, `cosmetic_chrome`,
+   `cosmetic_emerald`, `cosmetic_violet_neon`), create a Product + Payment
+   Link in the Stripe dashboard. In the Payment Link's advanced options, add
+   metadata `sku` = the matching SKU string above — the webhook reads that
+   to know what to grant.
+3. Paste each Payment Link URL into `COSMETIC_PAYMENT_LINKS` near the top
+   of `public/client.js`.
+4. In the Stripe dashboard, add a webhook endpoint pointing at
+   `https://yourdomain.com/webhooks/stripe`, listening for
+   `checkout.session.completed`. Stripe gives you a signing secret when you
+   do this — set it as `STRIPE_WEBHOOK_SECRET` in your environment
+   variables (same panel as `SESSION_SECRET`, `GEMINI_API_KEY`, etc).
+5. That's it — no `STRIPE_SECRET_KEY` needed on the server for this
+   particular flow, since Payment Links don't require creating Checkout
+   Sessions server-side. You'd only need that key if you later want to
+   create sessions dynamically instead of using static Payment Links.
+
+**Being straight about the gap:** the client passes `client_reference_id`
+to Stripe so the webhook knows who to credit — but a determined person could
+still edit their own WebSocket messages to set any avatar color they want
+locally, since color is just cosmetic data with no server-side purchase
+check at select-time. I left it this way on purpose: enforcing it
+server-side would mean validating avatar color against entitlements on
+every single state broadcast, which is real complexity for a scenario where
+the entire "exploit" is *seeing yourself as a slightly different shade of
+purple that only you can see, since nobody else cares what color you
+picked*. Not worth the code. If this ever becomes a real revenue feature
+with something more meaningful behind it (name badges other people see,
+for instance), that's the point to add real server-side enforcement.
+
+## 24. Tuning the game
 
 Everything that controls game feel lives at the top of `server.js`:
 
@@ -398,7 +467,7 @@ goes for `SCENARIOS_BY_LANG` and `BANNED_WORD_POOL_BY_LANG` if you add a
 fourth language — the client-side callout picker doesn't need those two, only
 the goal pool.
 
-## 22. Known scope / what's not built
+## 25. Known scope / what's not built
 
 - No persistent leaderboard or match history across sessions — scores reset
   whenever "start a new file" is pressed, and nothing survives a server

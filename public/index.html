@@ -34,19 +34,17 @@
 <!-- Content Security Policy: blocks scripts/styles/frames from loading off
      any domain not explicitly listed here. The AdSense-related domains and
      'unsafe-inline' for styles are necessary given how this app is built
-     (AdSense injects its own sub-resources at runtime; the UI sets a lot of
-     inline style="" for things like the timer bar and colored avatar dots).
-     A nonce-based rewrite would let style-src drop 'unsafe-inline' for
-     stronger protection, but that's a bigger structural change than a meta
-     tag — see README for the tradeoff. -->
+     (the UI sets a lot of inline style="" for things like the timer bar and
+     colored avatar dots). A nonce-based rewrite would let style-src drop
+     'unsafe-inline' for stronger protection, but that's a bigger structural
+     change than a meta tag — see README for the tradeoff. -->
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net https://www.googletagservices.com https://www.google.com https://www.gstatic.com;
+  script-src 'self' 'unsafe-inline';
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com;
-  img-src 'self' data: https://*.googlesyndication.com https://*.google.com https://*.doubleclick.net https://*.gstatic.com;
-  connect-src 'self' ws: wss: https://pagead2.googlesyndication.com https://googleads.g.doubleclick.net;
-  frame-src https://googleads.g.doubleclick.net https://*.google.com;
+  img-src 'self' data:;
+  connect-src 'self' ws: wss:;
   object-src 'none';
   base-uri 'self';
 " />
@@ -55,16 +53,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css" />
-
-<!-- Preconnect to AdSense's serving domains so, once approved, ad requests
-     don't cost a fresh DNS+TLS handshake on top of everything else loading -->
-<link rel="preconnect" href="https://pagead2.googlesyndication.com" crossorigin>
-<link rel="preconnect" href="https://googleads.g.doubleclick.net" crossorigin>
-
-<!-- AdSense: only actually serves ads once this site is approved and live on
-     a real domain — see README section on ads for the ads.txt + approval steps. -->
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7313911947751437"
-     crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -82,8 +70,46 @@
 
 <!-- global settings trigger, visible on every screen -->
 <div class="corner-controls">
+  <button id="btn-account" class="btn-icon" title="account" aria-label="account">👤</button>
   <button id="btn-leaderboard" class="btn-icon" title="leaderboard" aria-label="leaderboard">🏆</button>
   <button id="btn-settings" class="btn-icon" title="settings" aria-label="settings">⚙</button>
+  <a href="/privacy.html" target="_blank" rel="noopener" class="btn-icon" title="privacy">🔒</a>
+  <a href="https://www.instagram.com/spacelandstudiosgames/" target="_blank" rel="noopener" class="btn-icon" title="Instagram">📷</a>
+  <a href="https://www.youtube.com/@SpacelandStudios" target="_blank" rel="noopener" class="btn-icon" title="YouTube">▶</a>
+  <a href="https://x.com/SpacelandStudio" target="_blank" rel="noopener" class="btn-icon" title="X / Twitter">𝕏</a>
+</div>
+
+<!-- ======================= OVERLAY: ACCOUNT ======================= -->
+<div id="overlay-account" class="overlay hidden">
+  <div class="callout-card">
+    <div class="callout-head" data-i18n="account_title"></div>
+    <div id="auth-section" class="auth-section">
+      <div id="auth-logged-out">
+        <p class="auth-prompt" data-i18n="login_prompt"></p>
+        <div id="auth-buttons" class="auth-buttons"></div>
+
+        <div class="local-auth-block">
+          <div class="local-auth-fields">
+            <input id="local-username" maxlength="20" data-i18n-placeholder="local_username_placeholder" autocomplete="username" />
+            <input id="local-password" type="password" maxlength="72" data-i18n-placeholder="local_password_placeholder" autocomplete="current-password" />
+          </div>
+          <div class="local-auth-actions">
+            <button id="btn-local-login" class="btn-ghost small" data-i18n="local_login_btn"></button>
+            <button id="btn-local-register" class="btn-ghost small" data-i18n="local_register_btn"></button>
+          </div>
+          <p id="local-auth-error" class="error-line"></p>
+        </div>
+
+        <div class="divider"><span data-i18n="play_as_guest"></span></div>
+      </div>
+      <div id="auth-logged-in" class="auth-logged-in hidden">
+        <img id="auth-avatar" class="auth-avatar hidden" alt="" />
+        <span data-i18n="logged_in_as"></span> <b id="auth-name-display"></b>
+        <button id="btn-logout" class="btn-ghost small" data-i18n="logout"></button>
+      </div>
+    </div>
+    <button id="btn-close-account" class="btn btn-primary settings-done" data-i18n="settings_close"></button>
+  </div>
 </div>
 
 <!-- ======================= OVERLAY: LEADERBOARD ======================= -->
@@ -136,6 +162,22 @@
       </div>
     </div>
 
+    <div class="settings-block">
+      <div class="settings-label" data-i18n="settings_text_size"></div>
+      <div id="text-size-menu" class="lang-menu row-3">
+        <button class="size-option" data-size="small" data-i18n="settings_text_small"></button>
+        <button class="size-option" data-size="normal" data-i18n="settings_text_normal"></button>
+        <button class="size-option" data-size="large" data-i18n="settings_text_large"></button>
+      </div>
+    </div>
+
+    <div class="settings-block">
+      <div class="settings-row">
+        <span data-i18n="settings_high_contrast"></span>
+        <button id="toggle-contrast" class="toggle-switch" aria-pressed="false"><span class="knob"></span></button>
+      </div>
+    </div>
+
     <button id="btn-forget-me" class="btn-ghost full" data-i18n="settings_forget"></button>
   </div>
 </div>
@@ -150,32 +192,6 @@
     <p class="tagline" data-i18n="tagline"></p>
 
     <div class="home-card">
-      <div id="auth-section" class="auth-section">
-        <div id="auth-logged-out">
-          <p class="auth-prompt" data-i18n="login_prompt"></p>
-          <div id="auth-buttons" class="auth-buttons"></div>
-
-          <div class="local-auth-block">
-            <div class="local-auth-fields">
-              <input id="local-username" maxlength="20" data-i18n-placeholder="local_username_placeholder" autocomplete="username" />
-              <input id="local-password" type="password" maxlength="72" data-i18n-placeholder="local_password_placeholder" autocomplete="current-password" />
-            </div>
-            <div class="local-auth-actions">
-              <button id="btn-local-login" class="btn-ghost small" data-i18n="local_login_btn"></button>
-              <button id="btn-local-register" class="btn-ghost small" data-i18n="local_register_btn"></button>
-            </div>
-            <p id="local-auth-error" class="error-line"></p>
-          </div>
-
-          <div class="divider"><span data-i18n="play_as_guest"></span></div>
-        </div>
-        <div id="auth-logged-in" class="auth-logged-in hidden">
-          <img id="auth-avatar" class="auth-avatar hidden" alt="" />
-          <span data-i18n="logged_in_as"></span> <b id="auth-name-display"></b>
-          <button id="btn-logout" class="btn-ghost small" data-i18n="logout"></button>
-        </div>
-      </div>
-
       <div class="field">
         <label for="name-input" data-i18n="name_label"></label>
         <div class="name-row">
@@ -203,18 +219,6 @@
       <summary data-i18n="rules_summary"></summary>
       <ol id="rules-list"></ol>
     </details>
-
-    <div class="ad-slot">
-      <span class="ad-slot-label">Advertisement</span>
-      <!-- Create an ad unit in your AdSense dashboard and paste its slot ID
-           into data-ad-slot below (see README, "Ads" section). -->
-      <ins class="adsbygoogle"
-           style="display:block"
-           data-ad-client="ca-pub-7313911947751437"
-           data-ad-slot="0000000000"
-           data-ad-format="auto"
-           data-full-width-responsive="true"></ins>
-    </div>
   </div>
 </section>
 
@@ -228,6 +232,11 @@
       <div class="avatar-picker-block">
         <div class="settings-label" data-i18n="avatar_color"></div>
         <div id="avatar-skin-swatches" class="swatch-row"></div>
+      </div>
+
+      <div class="avatar-picker-block">
+        <div class="settings-label" data-i18n="avatar_premium_colors"></div>
+        <div id="avatar-premium-swatches" class="swatch-row"></div>
       </div>
     </div>
     <button id="btn-avatar-done" class="btn btn-primary settings-done" data-i18n="settings_close"></button>
@@ -323,16 +332,6 @@
       <p class="hint" data-i18n="need_two"></p>
     </div>
     <p id="waiting-note" class="hint hidden" data-i18n="waiting_host"></p>
-
-    <div class="ad-slot">
-      <span class="ad-slot-label">Advertisement</span>
-      <ins class="adsbygoogle"
-           style="display:block"
-           data-ad-client="ca-pub-7313911947751437"
-           data-ad-slot="0000000000"
-           data-ad-format="auto"
-           data-full-width-responsive="true"></ins>
-    </div>
   </div>
 </section>
 
@@ -419,6 +418,11 @@
     <h2 class="section-title" data-i18n="final_scoreboard"></h2>
     <ul id="reveal-scoreboard" class="scoreboard"></ul>
 
+    <div id="superlatives-block" class="superlatives-block hidden">
+      <h3 class="section-title small" data-i18n="superlatives_title"></h3>
+      <div id="superlatives-list" class="superlatives-list"></div>
+    </div>
+
     <h3 class="section-title small" data-i18n="full_story"></h3>
     <div class="paper">
       <div class="story-feed" id="reveal-story"></div>
@@ -427,28 +431,11 @@
     <div id="reveal-host-controls" class="host-controls hidden">
       <button id="btn-play-again" class="btn btn-primary btn-lg" data-i18n="play_again_btn"></button>
     </div>
-
-    <div class="ad-slot">
-      <span class="ad-slot-label">Advertisement</span>
-      <ins class="adsbygoogle"
-           style="display:block"
-           data-ad-client="ca-pub-7313911947751437"
-           data-ad-slot="0000000000"
-           data-ad-format="auto"
-           data-full-width-responsive="true"></ins>
-    </div>
   </div>
 </section>
 
 <footer class="credit-footer">
   <span id="credit-line" data-i18n="credit_line"></span>
-  <span class="footer-sep">·</span>
-  <a href="/privacy.html" target="_blank" rel="noopener" class="footer-link">privacy</a>
-  <span class="footer-social">
-    <a href="https://www.instagram.com/spacelandstudiosgames/" target="_blank" rel="noopener" aria-label="Instagram" title="Instagram">📷</a>
-    <a href="https://www.youtube.com/@SpacelandStudios" target="_blank" rel="noopener" aria-label="YouTube" title="YouTube">▶</a>
-    <a href="https://x.com/SpacelandStudio" target="_blank" rel="noopener" aria-label="X / Twitter" title="X / Twitter">𝕏</a>
-  </span>
 </footer>
 
 <div id="toast-stack" class="toast-stack"></div>

@@ -735,8 +735,11 @@ input:focus-visible { border-bottom-color: var(--redink); }
   right: 14px;
   z-index: 40;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
   align-items: center;
+  max-width: 60vw;
 }
 
 .btn-icon {
@@ -751,6 +754,7 @@ input:focus-visible { border-bottom-color: var(--redink); }
   display: flex;
   align-items: center;
   justify-content: center;
+  text-decoration: none;
 }
 .btn-icon:hover { border-color: var(--brass); }
 
@@ -961,11 +965,13 @@ input:focus-visible { border-bottom-color: var(--redink); }
 }
 
 .lang-menu { display: grid; gap: 6px; }
-.lang-option {
+.lang-menu.row-3 { grid-template-columns: repeat(3, 1fr); }
+.lang-option, .size-option {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  text-align: left;
+  text-align: center;
   background: var(--paper-2);
   border: 1.5px solid transparent;
   border-radius: 2px;
@@ -974,9 +980,10 @@ input:focus-visible { border-bottom-color: var(--redink); }
   font-size: 13.5px;
   cursor: pointer;
 }
+.lang-option { text-align: left; justify-content: flex-start; }
 .lang-option .flag { font-size: 16px; }
-.lang-option:hover { background: var(--paper-3); }
-.lang-option.active { border-color: var(--redink); background: var(--paper-3); font-weight: 700; }
+.lang-option:hover, .size-option:hover { background: var(--paper-3); }
+.lang-option.active, .size-option.active { border-color: var(--redink); background: var(--paper-3); font-weight: 700; }
 
 .toggle-switch {
   position: relative;
@@ -1185,34 +1192,6 @@ input:focus-visible { border-bottom-color: var(--redink); }
   padding-left: 2px;
 }
 
-/* =============================================================================
-   Ad slots — styled to sit quietly in the page (same paper/ink language as
-   everything else) without ever being disguised as game content. The
-   "Advertisement" label always stays visible per ad-network policy.
-============================================================================= */
-
-.ad-slot {
-  margin-top: 26px;
-  padding: 14px;
-  border: 1px dashed rgba(180, 143, 61, 0.3);
-  border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.02);
-  min-height: 60px;
-  text-align: center;
-}
-.ad-slot-label {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--fog-dim);
-  margin-bottom: 8px;
-}
-
-.footer-sep { color: var(--fog-dim); margin: 0 6px; }
-.footer-link { color: var(--fog-dim); text-decoration: underline; text-underline-offset: 2px; }
-.footer-link:hover { color: var(--brass); }
 
 .btn-icon-inline {
   background: none;
@@ -1306,15 +1285,6 @@ body.screen-shake { animation: screenShake 0.4s ease; }
   margin-bottom: 4px;
 }
 
-.footer-social { margin-left: 8px; }
-.footer-social a {
-  color: var(--fog-dim);
-  text-decoration: none;
-  margin: 0 5px;
-  font-size: 13px;
-  opacity: 0.8;
-}
-.footer-social a:hover { opacity: 1; color: var(--brass); }
 
 .crown { font-size: 14px; margin-right: -2px; }
 .tie-note {
@@ -1353,3 +1323,73 @@ body.screen-shake { animation: screenShake 0.4s ease; }
 .lb-rank { font-family: var(--font-mono); color: var(--brass-soft); width: 18px; text-align: right; }
 .lb-name { font-weight: 600; flex: 1; }
 .lb-wins, .lb-games { font-family: var(--font-mono); font-size: 11px; color: var(--charcoal-soft); }
+
+/* =============================================================================
+   Text size setting — targets the highest-value reading surfaces rather
+   than a blanket rem refactor of the whole stylesheet.
+============================================================================= */
+
+[data-text-size="small"] .story-feed,
+[data-text-size="small"] #sentence-input { font-size: 14px; }
+[data-text-size="large"] .story-feed,
+[data-text-size="large"] #sentence-input { font-size: 19px; }
+
+[data-text-size="small"] .goal-text { font-size: 12.5px; }
+[data-text-size="large"] .goal-text { font-size: 17px; }
+
+[data-text-size="small"] .turn-indicator,
+[data-text-size="small"] .voting-item .g,
+[data-text-size="small"] .goal-mini { font-size: 11px; }
+[data-text-size="large"] .turn-indicator,
+[data-text-size="large"] .voting-item .g,
+[data-text-size="large"] .goal-mini { font-size: 15.5px; }
+
+/* =============================================================================
+   High contrast mode — punchier borders and text color, no soft gradients
+============================================================================= */
+
+html.high-contrast { --fog: #ffffff; --fog-dim: #d8d0b8; --charcoal-soft: #000000; }
+html.high-contrast .paper, html.high-contrast .callout-card, html.high-contrast .settings-card {
+  --charcoal: #000000;
+  --charcoal-soft: #1a1a1a;
+}
+html.high-contrast .suspect, html.high-contrast .roster li, html.high-contrast .voting-item,
+html.high-contrast .scoreboard li, html.high-contrast .match-settings {
+  border-width: 2px;
+  border-color: var(--brass);
+}
+html.high-contrast .btn-primary { box-shadow: 0 0 0 2px var(--paper); }
+html.high-contrast .grain::after { display: none; }
+
+.superlatives-block { margin-top: 22px; }
+.superlatives-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.superlative-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ink-2);
+  border: 1px solid var(--brass-soft);
+  border-radius: 20px;
+  padding: 6px 12px 6px 6px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+}
+.superlative-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+.superlative-name { font-weight: 600; }
+
+.swatch-btn.premium { position: relative; }
+.swatch-btn.premium.locked {
+  opacity: 0.55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  filter: grayscale(0.4);
+}
+.swatch-btn.premium.locked:hover { opacity: 0.85; }

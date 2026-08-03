@@ -32,6 +32,12 @@
     const reduceMotion = localStorage.getItem("derail:reduceMotion") === "1";
     document.documentElement.classList.toggle("force-reduce-motion", reduceMotion);
 
+    const textSize = localStorage.getItem("derail:textSize") || "normal";
+    document.documentElement.setAttribute("data-text-size", textSize);
+
+    const highContrast = localStorage.getItem("derail:highContrast") === "1";
+    document.documentElement.classList.toggle("high-contrast", highContrast);
+
     syncSettingsUI();
     applyI18n();
   }
@@ -40,9 +46,13 @@
     $all(".lang-option").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.lang === i18nGetLang());
     });
+    $all(".size-option").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.size === document.documentElement.getAttribute("data-text-size"));
+    });
     setToggle($("#toggle-sfx"), !Sound.isMuted());
     setToggle($("#toggle-music"), !Music.isMuted());
     setToggle($("#toggle-motion"), document.documentElement.classList.contains("force-reduce-motion"));
+    setToggle($("#toggle-contrast"), document.documentElement.classList.contains("high-contrast"));
     $("#sfx-volume").value = Sound.getVolume();
     $("#music-volume").value = Music.getVolume();
   }
@@ -50,6 +60,15 @@
   function setToggle(btn, on) {
     btn.setAttribute("aria-pressed", on ? "true" : "false");
   }
+
+  $("#btn-account").addEventListener("click", () => {
+    Sound.click();
+    $("#overlay-account").classList.remove("hidden");
+  });
+  $("#btn-close-account").addEventListener("click", () => $("#overlay-account").classList.add("hidden"));
+  $("#overlay-account").addEventListener("click", (e) => {
+    if (e.target.id === "overlay-account") $("#overlay-account").classList.add("hidden");
+  });
 
   $("#btn-settings").addEventListener("click", () => {
     syncSettingsUI();
@@ -127,8 +146,25 @@
     setToggle($("#toggle-motion"), nowOn);
   });
 
+  $all(".size-option").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      Sound.click();
+      document.documentElement.setAttribute("data-text-size", btn.dataset.size);
+      localStorage.setItem("derail:textSize", btn.dataset.size);
+      syncSettingsUI();
+    });
+  });
+
+  $("#toggle-contrast").addEventListener("click", () => {
+    const nowOn = $("#toggle-contrast").getAttribute("aria-pressed") !== "true";
+    document.documentElement.classList.toggle("high-contrast", nowOn);
+    localStorage.setItem("derail:highContrast", nowOn ? "1" : "0");
+    setToggle($("#toggle-contrast"), nowOn);
+    Sound.click();
+  });
+
   $("#btn-forget-me").addEventListener("click", () => {
-    ["derail:lang", "derail:name", "derail:muted", "derail:sfxVolume", "derail:musicMuted", "derail:musicVolume", "derail:reduceMotion"]
+    ["derail:lang", "derail:name", "derail:muted", "derail:sfxVolume", "derail:musicMuted", "derail:musicVolume", "derail:reduceMotion", "derail:textSize", "derail:highContrast"]
       .forEach((k) => localStorage.removeItem(k));
     location.reload();
   });
@@ -304,6 +340,38 @@
     $("#avatar-big-preview").innerHTML = renderAvatarSVG(avatarConfig, 92);
   }
 
+  let ownedCosmetics = [];
+
+  async function loadEntitlements() {
+    try {
+      const data = await fetch("/entitlements/me").then((r) => r.json());
+      ownedCosmetics = data.owned || [];
+    } catch {
+      ownedCosmetics = [];
+    }
+  }
+
+  // Fill in real Stripe Payment Link URLs here once set up (see README) —
+  // each should have ?client_reference_id={identityId} appended at click
+  // time so the webhook knows who to grant the SKU to.
+  const COSMETIC_PAYMENT_LINKS = {
+    cosmetic_gold_foil: "",
+    cosmetic_chrome: "",
+    cosmetic_emerald: "",
+    cosmetic_violet_neon: "",
+  };
+
+  function openCosmeticPurchase(sku) {
+    const link = COSMETIC_PAYMENT_LINKS[sku];
+    if (!link) {
+      showToast(t("cosmetic_not_configured"), "info");
+      return;
+    }
+    const url = new URL(link);
+    url.searchParams.set("client_reference_id", myId || "guest");
+    window.open(url.toString(), "_blank", "noopener");
+  }
+
   function populateAvatarBuilder() {
     const skinWrap = $("#avatar-skin-swatches");
     skinWrap.innerHTML = "";
@@ -322,13 +390,39 @@
       });
       skinWrap.appendChild(b);
     });
+
+    const premiumWrap = $("#avatar-premium-swatches");
+    premiumWrap.innerHTML = "";
+    AVATAR_SKINS_PREMIUM.forEach((s) => {
+      const owned = ownedCosmetics.includes(s.sku);
+      const b = document.createElement("button");
+      b.className = "swatch-btn premium" + (avatarConfig.skin === s.id ? " active" : "") + (owned ? "" : " locked");
+      b.style.background = s.color;
+      b.title = owned ? s.id : t("cosmetic_locked_hint");
+      b.innerHTML = owned ? "" : "🔒";
+      b.addEventListener("click", () => {
+        Sound.click();
+        if (!owned) {
+          openCosmeticPurchase(s.sku);
+          return;
+        }
+        avatarConfig.skin = s.id;
+        saveAvatarConfig();
+        renderAvatarBigPreview();
+        renderAvatarPreview();
+        populateAvatarBuilder();
+      });
+      premiumWrap.appendChild(b);
+    });
   }
 
-  $("#btn-customize").addEventListener("click", () => {
+  $("#btn-customize").addEventListener("click", async () => {
     Sound.click();
+    $("#overlay-avatar").classList.remove("hidden");
     populateAvatarBuilder();
     renderAvatarBigPreview();
-    $("#overlay-avatar").classList.remove("hidden");
+    await loadEntitlements();
+    populateAvatarBuilder();
   });
   $("#btn-avatar-done").addEventListener("click", () => $("#overlay-avatar").classList.add("hidden"));
   $("#overlay-avatar").addEventListener("click", (e) => {
@@ -405,24 +499,6 @@
 
   let currentScreenId = null;
 
-  const adSlotsPushed = new Set();
-
-  function initAdsOnScreen(id) {
-    if (adSlotsPushed.has(id)) return;
-    const container = document.getElementById(id);
-    if (!container) return;
-    const slots = container.querySelectorAll("ins.adsbygoogle");
-    if (slots.length === 0) return;
-    adSlotsPushed.add(id);
-    slots.forEach((ins) => {
-      try {
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
-      } catch {
-        /* adblockers / offline dev / not yet approved by AdSense — fine, just skip */
-      }
-    });
-  }
-
   function showScreen(id) {
     if (id === currentScreenId) return;
     const wasFirstPaint = currentScreenId === null;
@@ -436,10 +512,6 @@
       el.classList.add("screen-enter");
     }
     if (!wasFirstPaint) Sound.whoosh();
-    // Ads only get pushed once a screen is actually visible (and only the
-    // first time) — pushing into a display:none container makes AdSense
-    // measure zero width and throw.
-    initAdsOnScreen(id);
   }
 
   // ---------------------------------------------------------------------
@@ -606,6 +678,12 @@
       { id: "underground", text: "A hidden underground tunnel or bunker must be discovered." },
       { id: "talking_animal", text: "An animal must start talking and nobody finds it strange." },
       { id: "prophecy", text: "An old prophecy must come true." },
+      { id: "shrink", text: "Someone must be shrunk to miniature size." },
+      { id: "evil_twin", text: "A character's evil twin must show up." },
+      { id: "time_travel", text: "A character must accidentally reveal they're from the future or past." },
+      { id: "invisible", text: "A character must turn invisible in front of everyone." },
+      { id: "curse", text: "An old curse or hex must activate." },
+      { id: "secret_agent", text: "A character must be exposed as an undercover secret agent." },
       { id: "normal", text: "Keep things completely normal — no twists, no chaos. Just a mundane, uneventful scene." },
     ],
     el: [
@@ -637,6 +715,12 @@
       { id: "underground", text: "Πρέπει να ανακαλυφθεί ένα κρυφό υπόγειο τούνελ ή καταφύγιο." },
       { id: "talking_animal", text: "Ένα ζώο πρέπει να αρχίσει να μιλάει και κανείς να μη βρίσκει κάτι περίεργο." },
       { id: "prophecy", text: "Μια παλιά προφητεία πρέπει να πραγματοποιηθεί." },
+      { id: "shrink", text: "Κάποιος πρέπει να μικρύνει σε μινιατούρα." },
+      { id: "evil_twin", text: "Πρέπει να εμφανιστεί ο κακός δίδυμος ενός χαρακτήρα." },
+      { id: "time_travel", text: "Ένας χαρακτήρας πρέπει κατά λάθος να αποκαλύψει ότι είναι από το μέλλον ή το παρελθόν." },
+      { id: "invisible", text: "Ένας χαρακτήρας πρέπει να γίνει αόρατος μπροστά σε όλους." },
+      { id: "curse", text: "Μια παλιά κατάρα πρέπει να ενεργοποιηθεί." },
+      { id: "secret_agent", text: "Ένας χαρακτήρας πρέπει να αποκαλυφθεί ως μυστικός πράκτορας." },
       { id: "normal", text: "Κράτα τα πράγματα εντελώς φυσιολογικά — καμία ανατροπή, καμία τρέλα. Απλώς μια ήσυχη, καθημερινή σκηνή." },
     ],
     es: [
@@ -668,6 +752,12 @@
       { id: "underground", text: "Debe descubrirse un túnel o búnker secreto bajo tierra." },
       { id: "talking_animal", text: "Un animal debe empezar a hablar y a nadie le debe parecer extraño." },
       { id: "prophecy", text: "Una vieja profecía debe cumplirse." },
+      { id: "shrink", text: "Alguien debe encogerse hasta un tamaño miniatura." },
+      { id: "evil_twin", text: "Debe aparecer el gemelo malvado de un personaje." },
+      { id: "time_travel", text: "Un personaje debe revelar por accidente que viene del futuro o del pasado." },
+      { id: "invisible", text: "Un personaje debe volverse invisible delante de todos." },
+      { id: "curse", text: "Una vieja maldición debe activarse." },
+      { id: "secret_agent", text: "Un personaje debe ser expuesto como agente secreto encubierto." },
       { id: "normal", text: "Mantén todo completamente normal — sin giros, sin caos. Solo una escena tranquila y cotidiana." },
     ],
   };
@@ -1066,6 +1156,29 @@
       else if (myResult && myResult.success) Sound.success();
     }
 
+    const awards = state.reveal?.superlatives || [];
+    const superBlock = $("#superlatives-block");
+    const superList = $("#superlatives-list");
+    if (awards.length === 0) {
+      superBlock.classList.add("hidden");
+    } else {
+      superBlock.classList.remove("hidden");
+      superList.innerHTML = "";
+      awards.forEach((a, i) => {
+        const p = state.players.find((pl) => pl.id === a.playerId);
+        if (!p) return;
+        const chip = document.createElement("div");
+        chip.className = "superlative-chip pop-in";
+        chip.style.animationDelay = `${i * 0.1}s`;
+        chip.innerHTML = `
+          <span class="superlative-title">${t(a.key)}</span>
+          ${miniAvatarHTML(p.avatar, 20)}
+          <span class="superlative-name">${escapeHtml(p.name)}</span>
+        `;
+        superList.appendChild(chip);
+      });
+    }
+
     const story = $("#reveal-story");
     story.innerHTML = "";
     const open = document.createElement("div");
@@ -1161,5 +1274,4 @@
   initSettings();
   initAuth();
   currentScreenId = "screen-home";
-  initAdsOnScreen("screen-home");
 })();
