@@ -446,7 +446,47 @@ picked*. Not worth the code. If this ever becomes a real revenue feature
 with something more meaningful behind it (name badges other people see,
 for instance), that's the point to add real server-side enforcement.
 
-## 24. Tuning the game
+## 24. Mobile pass, overlap fix, and a real text-size fix
+
+- **Text size actually works now.** Every `font-size` in `style.css` is in
+  `rem` instead of hardcoded `px`, and the small/normal/large setting just
+  changes the root element's font-size — since rem is relative to that root,
+  the whole app scales together automatically. The old version only touched
+  a handful of hand-picked elements, which is why it looked broken; this
+  version was verified by measuring a totally unrelated button's computed
+  font size before and after changing the setting.
+- **Fixed the copy-link overlap.** The corner icon cluster (account,
+  leaderboard, settings, links) is `position: fixed`, and the lobby/game/
+  voting/reveal top bars didn't reserve any space for it, so the invite-link
+  button and the icon cluster could sit on top of each other. Every top bar
+  now has clearance built in, and also wraps onto a second line instead of
+  overflowing if it ever runs out of room.
+- **Mobile gets a real pass, PC is untouched.** Everything below lives
+  inside `@media (max-width: 780px)` — none of it applies on a normal
+  desktop browser window: bigger tap targets (buttons, toggles, inputs all
+  meet a ~44px minimum), the privacy/social icons collapse into one "more"
+  button so the corner cluster doesn't get crowded, modals open as bottom
+  sheets (full-width, anchored low, rounded top corners) instead of shrunken
+  desktop dialogs, and the sentence input sticks near the bottom of the
+  screen within thumb reach while you're writing.
+- **Every modal is scroll-safe now** (`max-height` + `overflow-y: auto`),
+  which matters as soon as the settings list gets long on a short phone
+  screen — it scrolls instead of getting cut off or pushing buttons
+  off-screen.
+
+## 25. A lot more settings
+
+Six new ones, on top of what was already there: **compact mode** (tighter
+spacing), **haptics** (vibrates on your turn and when someone's busted —
+mobile only, silently does nothing on desktop since there's no vibration
+motor to buzz), **celebration effects intensity** (off/normal/extra, tones
+down or punches up the stamp-slam and pop-in flourishes independently of
+the accessibility-focused reduce-motion switch), **auto-focus** the text box
+the instant it's your turn, and **auto-copy** the invite link the moment you
+create a room. The settings panel scrolls now, so this list can keep
+growing without needing another redesign.
+
+## 26. Tuning the game
 
 Everything that controls game feel lives at the top of `server.js`:
 
@@ -467,7 +507,7 @@ goes for `SCENARIOS_BY_LANG` and `BANNED_WORD_POOL_BY_LANG` if you add a
 fourth language — the client-side callout picker doesn't need those two, only
 the goal pool.
 
-## 25. Known scope / what's not built
+## 27. Known scope / what's not built
 
 - No persistent leaderboard or match history across sessions — scores reset
   whenever "start a new file" is pressed, and nothing survives a server

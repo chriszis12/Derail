@@ -73,10 +73,27 @@
   <button id="btn-account" class="btn-icon" title="account" aria-label="account">👤</button>
   <button id="btn-leaderboard" class="btn-icon" title="leaderboard" aria-label="leaderboard">🏆</button>
   <button id="btn-settings" class="btn-icon" title="settings" aria-label="settings">⚙</button>
-  <a href="/privacy.html" target="_blank" rel="noopener" class="btn-icon" title="privacy">🔒</a>
-  <a href="https://www.instagram.com/spacelandstudiosgames/" target="_blank" rel="noopener" class="btn-icon" title="Instagram">📷</a>
-  <a href="https://www.youtube.com/@SpacelandStudios" target="_blank" rel="noopener" class="btn-icon" title="YouTube">▶</a>
-  <a href="https://x.com/SpacelandStudio" target="_blank" rel="noopener" class="btn-icon" title="X / Twitter">𝕏</a>
+  <span class="corner-controls-links">
+    <a href="/privacy.html" target="_blank" rel="noopener" class="btn-icon" title="privacy">🔒</a>
+    <a href="https://www.instagram.com/spacelandstudiosgames/" target="_blank" rel="noopener" class="btn-icon" title="Instagram">📷</a>
+    <a href="https://www.youtube.com/@SpacelandStudios" target="_blank" rel="noopener" class="btn-icon" title="YouTube">▶</a>
+    <a href="https://x.com/SpacelandStudio" target="_blank" rel="noopener" class="btn-icon" title="X / Twitter">𝕏</a>
+  </span>
+  <button id="btn-more-links" class="btn-icon corner-controls-more" title="more" aria-label="more links">⋯</button>
+</div>
+
+<!-- ======================= OVERLAY: MORE LINKS (mobile only) ======================= -->
+<div id="overlay-more-links" class="overlay hidden">
+  <div class="callout-card">
+    <div class="callout-head" data-i18n="more_links_title"></div>
+    <div class="more-links-list">
+      <a href="/privacy.html" target="_blank" rel="noopener" class="more-link-row">🔒 <span data-i18n="more_links_privacy"></span></a>
+      <a href="https://www.instagram.com/spacelandstudiosgames/" target="_blank" rel="noopener" class="more-link-row">📷 Instagram</a>
+      <a href="https://www.youtube.com/@SpacelandStudios" target="_blank" rel="noopener" class="more-link-row">▶ YouTube</a>
+      <a href="https://x.com/SpacelandStudio" target="_blank" rel="noopener" class="more-link-row">𝕏 X / Twitter</a>
+    </div>
+    <button id="btn-close-more-links" class="btn btn-primary settings-done" data-i18n="settings_close"></button>
+  </div>
 </div>
 
 <!-- ======================= OVERLAY: ACCOUNT ======================= -->
@@ -175,6 +192,44 @@
       <div class="settings-row">
         <span data-i18n="settings_high_contrast"></span>
         <button id="toggle-contrast" class="toggle-switch" aria-pressed="false"><span class="knob"></span></button>
+      </div>
+    </div>
+
+    <div class="settings-block">
+      <div class="settings-row">
+        <span data-i18n="settings_compact"></span>
+        <button id="toggle-compact" class="toggle-switch" aria-pressed="false"><span class="knob"></span></button>
+      </div>
+    </div>
+
+    <div class="settings-block">
+      <div class="settings-row">
+        <span data-i18n="settings_haptics"></span>
+        <button id="toggle-haptics" class="toggle-switch" aria-pressed="false"><span class="knob"></span></button>
+      </div>
+      <p class="hint settings-subtext" data-i18n="settings_haptics_hint"></p>
+    </div>
+
+    <div class="settings-block">
+      <div class="settings-label" data-i18n="settings_effects"></div>
+      <div id="effects-menu" class="lang-menu row-3">
+        <button class="effects-option" data-effects="off" data-i18n="settings_effects_off"></button>
+        <button class="effects-option" data-effects="normal" data-i18n="settings_effects_normal"></button>
+        <button class="effects-option" data-effects="high" data-i18n="settings_effects_high"></button>
+      </div>
+    </div>
+
+    <div class="settings-block">
+      <div class="settings-row">
+        <span data-i18n="settings_autofocus"></span>
+        <button id="toggle-autofocus" class="toggle-switch" aria-pressed="true"><span class="knob"></span></button>
+      </div>
+    </div>
+
+    <div class="settings-block">
+      <div class="settings-row">
+        <span data-i18n="settings_autocopy"></span>
+        <button id="toggle-autocopy" class="toggle-switch" aria-pressed="false"><span class="knob"></span></button>
       </div>
     </div>
 

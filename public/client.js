@@ -38,8 +38,44 @@
     const highContrast = localStorage.getItem("derail:highContrast") === "1";
     document.documentElement.classList.toggle("high-contrast", highContrast);
 
+    document.documentElement.classList.toggle("compact-mode", localStorage.getItem("derail:compact") === "1");
+    document.documentElement.setAttribute("data-effects", localStorage.getItem("derail:effects") || "normal");
+
     syncSettingsUI();
     applyI18n();
+  }
+
+  function hapticsEnabled() {
+    return localStorage.getItem("derail:haptics") === "1";
+  }
+  function autoFocusEnabled() {
+    return localStorage.getItem("derail:autofocus") !== "0"; // on by default
+  }
+  function autoCopyEnabled() {
+    return localStorage.getItem("derail:autocopy") === "1";
+  }
+  function effectsLevel() {
+    return document.documentElement.getAttribute("data-effects") || "normal";
+  }
+  function vibrate(pattern) {
+    if (hapticsEnabled() && navigator.vibrate) navigator.vibrate(pattern);
+  }
+
+  function burstConfetti() {
+    const level = effectsLevel();
+    if (level === "off") return;
+    const count = level === "high" ? 40 : 20;
+    const colors = ["#a5312b", "#b48f3d", "#4b7a5c", "#5c7a96", "#d8cba3"];
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement("span");
+      piece.className = "confetti-piece";
+      piece.style.left = Math.random() * 100 + "vw";
+      piece.style.background = colors[i % colors.length];
+      piece.style.animationDelay = Math.random() * 0.3 + "s";
+      piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+      document.body.appendChild(piece);
+      setTimeout(() => piece.remove(), 1800);
+    }
   }
 
   function syncSettingsUI() {
@@ -49,10 +85,17 @@
     $all(".size-option").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.size === document.documentElement.getAttribute("data-text-size"));
     });
+    $all(".effects-option").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.effects === effectsLevel());
+    });
     setToggle($("#toggle-sfx"), !Sound.isMuted());
     setToggle($("#toggle-music"), !Music.isMuted());
     setToggle($("#toggle-motion"), document.documentElement.classList.contains("force-reduce-motion"));
     setToggle($("#toggle-contrast"), document.documentElement.classList.contains("high-contrast"));
+    setToggle($("#toggle-compact"), document.documentElement.classList.contains("compact-mode"));
+    setToggle($("#toggle-haptics"), hapticsEnabled());
+    setToggle($("#toggle-autofocus"), autoFocusEnabled());
+    setToggle($("#toggle-autocopy"), autoCopyEnabled());
     $("#sfx-volume").value = Sound.getVolume();
     $("#music-volume").value = Music.getVolume();
   }
@@ -60,6 +103,15 @@
   function setToggle(btn, on) {
     btn.setAttribute("aria-pressed", on ? "true" : "false");
   }
+
+  $("#btn-more-links").addEventListener("click", () => {
+    Sound.click();
+    $("#overlay-more-links").classList.remove("hidden");
+  });
+  $("#btn-close-more-links").addEventListener("click", () => $("#overlay-more-links").classList.add("hidden"));
+  $("#overlay-more-links").addEventListener("click", (e) => {
+    if (e.target.id === "overlay-more-links") $("#overlay-more-links").classList.add("hidden");
+  });
 
   $("#btn-account").addEventListener("click", () => {
     Sound.click();
@@ -163,8 +215,49 @@
     Sound.click();
   });
 
+  $("#toggle-compact").addEventListener("click", () => {
+    const nowOn = $("#toggle-compact").getAttribute("aria-pressed") !== "true";
+    document.documentElement.classList.toggle("compact-mode", nowOn);
+    localStorage.setItem("derail:compact", nowOn ? "1" : "0");
+    setToggle($("#toggle-compact"), nowOn);
+    Sound.click();
+  });
+
+  $("#toggle-haptics").addEventListener("click", () => {
+    const nowOn = $("#toggle-haptics").getAttribute("aria-pressed") !== "true";
+    localStorage.setItem("derail:haptics", nowOn ? "1" : "0");
+    setToggle($("#toggle-haptics"), nowOn);
+    Sound.click();
+    if (nowOn) vibrate(20); // quick confirmation buzz so the setting proves itself immediately
+  });
+
+  $("#toggle-autofocus").addEventListener("click", () => {
+    const nowOn = $("#toggle-autofocus").getAttribute("aria-pressed") !== "true";
+    localStorage.setItem("derail:autofocus", nowOn ? "1" : "0");
+    setToggle($("#toggle-autofocus"), nowOn);
+    Sound.click();
+  });
+
+  $("#toggle-autocopy").addEventListener("click", () => {
+    const nowOn = $("#toggle-autocopy").getAttribute("aria-pressed") !== "true";
+    localStorage.setItem("derail:autocopy", nowOn ? "1" : "0");
+    setToggle($("#toggle-autocopy"), nowOn);
+    Sound.click();
+  });
+
+  $all(".effects-option").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      Sound.click();
+      document.documentElement.setAttribute("data-effects", btn.dataset.effects);
+      localStorage.setItem("derail:effects", btn.dataset.effects);
+      syncSettingsUI();
+    });
+  });
+
   $("#btn-forget-me").addEventListener("click", () => {
-    ["derail:lang", "derail:name", "derail:muted", "derail:sfxVolume", "derail:musicMuted", "derail:musicVolume", "derail:reduceMotion", "derail:textSize", "derail:highContrast"]
+    ["derail:lang", "derail:name", "derail:muted", "derail:sfxVolume", "derail:musicMuted", "derail:musicVolume",
+     "derail:reduceMotion", "derail:textSize", "derail:highContrast", "derail:compact", "derail:haptics",
+     "derail:autofocus", "derail:autocopy", "derail:effects"]
       .forEach((k) => localStorage.removeItem(k));
     location.reload();
   });
@@ -467,6 +560,10 @@
       case "joined":
         myId = msg.playerId;
         myCode = msg.code;
+        if (autoCopyEnabled()) {
+          const url = `${location.origin}${location.pathname}?join=${myCode}`;
+          navigator.clipboard?.writeText(url).then(() => showToast(t("copy_invite"), "success")).catch(() => {});
+        }
         break;
       case "error":
         $("#home-error").textContent = toastText(msg.code) || msg.code;
@@ -809,8 +906,12 @@
       if (lastCalloutResolvedKey !== resolvedKey) {
         lastCalloutResolvedKey = resolvedKey;
         requestAnimationFrame(() => stamp.classList.add("show"));
-        if (c.resolved.correct) Sound.stampBusted();
-        else Sound.stampWrong();
+        if (c.resolved.correct) {
+          Sound.stampBusted();
+          vibrate(c.targetId === myId ? [60, 40, 60] : 30);
+        } else {
+          Sound.stampWrong();
+        }
       }
     } else {
       result.classList.add("hidden");
@@ -1031,7 +1132,11 @@
       turnEl.innerHTML = `<span class="me">${t("your_turn")}</span> ${t("your_turn_rest")}`;
       input.disabled = false;
       submit.disabled = false;
-      if (!wasMyTurn) Sound.yourTurn();
+      if (!wasMyTurn) {
+        Sound.yourTurn();
+        vibrate(40);
+        if (autoFocusEnabled()) input.focus();
+      }
     } else {
       const currentP = state.players.find((p) => p.id === state.currentTurnId);
       turnEl.innerHTML = `${t("waiting_on")} <b>${escapeHtml(currentP?.name || "…")}</b>&hellip;`;
@@ -1153,7 +1258,10 @@
       const me = state.players.find((p) => p.id === myId);
       const myResult = results[myId];
       if (me?.busted || (myResult && !myResult.success)) Sound.fail();
-      else if (myResult && myResult.success) Sound.success();
+      else if (myResult && myResult.success) {
+        Sound.success();
+        burstConfetti();
+      }
     }
 
     const awards = state.reveal?.superlatives || [];
